@@ -139,7 +139,7 @@ export default function RankingsPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
-        <h1 className="text-3xl font-bold mb-6">트렌드 랭킹</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6">트렌드 랭킹</h1>
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6">
@@ -228,72 +228,111 @@ export default function RankingsPage() {
           <div className="space-y-3">
             {rankings.map((item) => (
               <Card key={item.id}>
-                <CardContent className="p-4">
-                  <Link
-                    href={`/products/${item.product.id}`}
-                    className="flex items-center gap-4"
-                  >
-                    {/* Rank */}
-                    <div className="flex flex-col items-center w-12">
-                      <span className="text-2xl font-bold">{item.rank}</span>
-                      <RankChangeIndicator change={item.change} />
-                    </div>
-
-                    {/* Thumbnail */}
-                    <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0">
-                      {item.product.thumbnailUrl ? (
-                        <img
-                          src={item.product.thumbnailUrl}
-                          alt={item.product.name}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
-                          No Image
+                <CardContent className="p-0 sm:p-4">
+                  <Link href={`/products/${item.product.id}`}>
+                    {/* 모바일: 세로형 레이아웃 */}
+                    <div className="sm:hidden">
+                      {/* 상단 바 */}
+                      <div className="flex items-center justify-between px-3 py-2 border-b">
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold">#{item.rank}</span>
+                          <RankChangeIndicator change={item.change} />
                         </div>
-                      )}
-                    </div>
-
-                    {/* Product Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-medium truncate">
-                        {item.product.name}
-                      </h3>
-                      <div className="flex items-center gap-2 mt-1">
-                        {item.product.category && (
-                          <Badge variant="secondary">
-                            {categoryMap[item.product.category] || item.product.category}
-                          </Badge>
+                        <div className="flex items-center gap-2">
+                          {item.product.category && (
+                            <Badge variant="secondary" className="text-xs">
+                              {categoryMap[item.product.category] || item.product.category}
+                            </Badge>
+                          )}
+                          <span className="font-bold text-primary">{item.score.toFixed(1)}</span>
+                        </div>
+                      </div>
+                      {/* 썸네일 */}
+                      <div className="aspect-video bg-muted overflow-hidden">
+                        {item.product.thumbnailUrl ? (
+                          <img
+                            src={item.product.thumbnailUrl}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                            No Image
+                          </div>
                         )}
-                        <span className="text-sm text-muted-foreground">
-                          영상 {item.videoCount}개
-                        </span>
+                      </div>
+                      {/* 상품 정보 */}
+                      <div className="px-3 py-2">
+                        <h3 className="font-medium line-clamp-2 text-sm">{item.product.name}</h3>
+                        <span className="text-xs text-muted-foreground">영상 {item.videoCount}개</span>
                       </div>
                     </div>
 
-                    {/* Stats */}
-                    <div className="text-right hidden md:block">
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">조회수</span>{" "}
-                        <span className="font-medium">
-                          {formatNumber(item.totalViews)}
-                        </span>
+                    {/* sm 이상: 기존 가로형 레이아웃 */}
+                    <div className="hidden sm:flex items-center gap-4">
+                      {/* Rank */}
+                      <div className="flex flex-col items-center w-12">
+                        <span className="text-2xl font-bold">{item.rank}</span>
+                        <RankChangeIndicator change={item.change} />
                       </div>
-                      <div className="text-sm">
-                        <span className="text-muted-foreground">좋아요</span>{" "}
-                        <span className="font-medium">
-                          {formatNumber(item.totalLikes)}
-                        </span>
-                      </div>
-                    </div>
 
-                    {/* Score */}
-                    <div className="text-right">
-                      <div className="text-lg font-bold text-primary">
-                        {item.score.toFixed(1)}
+                      {/* Thumbnail */}
+                      <div className="w-20 h-20 bg-muted rounded-lg overflow-hidden flex-shrink-0">
+                        {item.product.thumbnailUrl ? (
+                          <img
+                            src={item.product.thumbnailUrl}
+                            alt={item.product.name}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
+                            No Image
+                          </div>
+                        )}
                       </div>
-                      <div className="text-xs text-muted-foreground">점수</div>
+
+                      {/* Product Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-medium truncate">
+                          {item.product.name}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          {item.product.category && (
+                            <Badge variant="secondary">
+                              {categoryMap[item.product.category] || item.product.category}
+                            </Badge>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            영상 {item.videoCount}개
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className="text-right hidden md:block">
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">조회수</span>{" "}
+                          <span className="font-medium">
+                            {formatNumber(item.totalViews)}
+                          </span>
+                        </div>
+                        <div className="text-sm">
+                          <span className="text-muted-foreground">좋아요</span>{" "}
+                          <span className="font-medium">
+                            {formatNumber(item.totalLikes)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Score */}
+                      <div className="text-right">
+                        <div className="text-lg font-bold text-primary">
+                          {item.score.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">점수</div>
+                      </div>
                     </div>
                   </Link>
                 </CardContent>

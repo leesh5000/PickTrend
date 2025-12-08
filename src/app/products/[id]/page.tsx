@@ -85,7 +85,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <div className="flex flex-col md:flex-row gap-6 mb-8">
           <div className="w-full md:w-64 flex-shrink-0">
             <div
-              className={`w-full h-64 bg-muted rounded-lg overflow-hidden ${
+              className={`w-full h-48 md:h-64 bg-muted rounded-lg overflow-hidden ${
                 product.affiliateUrl ? "cursor-pointer hover:opacity-90 transition" : ""
               }`}
               onClick={() => {
@@ -114,7 +114,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
 
           <div className="flex-1">
             <h1
-              className={`text-3xl font-bold mb-2 ${
+              className={`text-xl sm:text-2xl md:text-3xl font-bold mb-2 ${
                 product.affiliateUrl ? "cursor-pointer hover:text-primary transition-colors" : ""
               }`}
               onClick={() => {
@@ -138,7 +138,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 <div className="text-sm text-muted-foreground mb-1">
                   현재 순위
                 </div>
-                <div className="text-3xl font-bold text-primary">
+                <div className="text-2xl sm:text-3xl font-bold text-primary">
                   #{product.rankings[0].rank}
                 </div>
                 <div className="text-sm text-muted-foreground">
@@ -148,13 +148,13 @@ export default function ProductPage({ params }: { params: { id: string } }) {
             )}
 
             {/* Stats */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-2xl font-bold">{product.videos.length}</div>
+            <div className="grid grid-cols-3 gap-2 sm:gap-4">
+              <div className="text-center p-2 sm:p-3 bg-muted rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold">{product.videos.length}</div>
                 <div className="text-xs text-muted-foreground">관련 영상</div>
               </div>
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-2xl font-bold">
+              <div className="text-center p-2 sm:p-3 bg-muted rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold">
                   {formatNumber(
                     product.videos.reduce(
                       (sum: number, v: any) => sum + (v.latestMetric?.viewCount || 0),
@@ -164,8 +164,8 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 </div>
                 <div className="text-xs text-muted-foreground">총 조회수</div>
               </div>
-              <div className="text-center p-3 bg-muted rounded-lg">
-                <div className="text-2xl font-bold">
+              <div className="text-center p-2 sm:p-3 bg-muted rounded-lg">
+                <div className="text-xl sm:text-2xl font-bold">
                   {formatNumber(
                     product.videos.reduce(
                       (sum: number, v: any) => sum + (v.latestMetric?.likeCount || 0),
