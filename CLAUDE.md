@@ -13,8 +13,8 @@ PickTrend is a trending shopping product ranking service that:
 
 ```bash
 # Development
-npm run dev          # Start dev server (auto-runs prisma generate + migrate deploy)
-npm run build        # Production build (includes prisma generate + migrate deploy)
+npm run dev          # Start dev server (auto-runs prisma generate)
+npm run build        # Production build (includes prisma generate)
 npm run lint         # ESLint
 
 # Database (Prisma)
@@ -28,16 +28,25 @@ npm run db:studio    # Open Prisma Studio GUI
 
 ### Product Registration Flow
 
-1. **Admin Page** (`/admin/products/new`) - Manual product registration
-2. **YouTube Search** - Search videos by keyword using YouTube Data API v3
-3. **Video Selection** - Select videos to associate with the product
-4. **Score Calculation** - Calculate product score based on selected videos (max 100 points)
+**Single Registration** (`/admin/products/new`):
+1. Enter product info (name, category, affiliate URL)
+2. Search YouTube videos by keyword
+3. Select videos to associate
+4. Score calculated automatically (max 100 points)
+
+**Bulk Registration** (`/admin/products/bulk`):
+1. Run Console script on Coupang Goldbox page to extract products as JSON
+2. Paste JSON into bulk registration page
+3. For each product: select category, enter affiliate URL, search/select videos
+4. Register all products at once
 
 ### Key Modules
 
 - `src/lib/youtube/client.ts` - YouTube Data API v3 integration (search, video details, channel details)
 - `src/lib/ranking/score-calculator.ts` - Scoring algorithm (100 points max)
-- `src/app/admin/products/new/page.tsx` - Product registration UI
+- `src/lib/coupang/parser.ts` - Coupang HTML/JSON parser for bulk registration
+- `src/app/admin/products/new/page.tsx` - Single product registration UI
+- `src/app/admin/products/bulk/page.tsx` - Bulk product registration UI
 
 ### Score Algorithm (100 Points Max)
 

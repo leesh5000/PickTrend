@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCategories } from "@/hooks/useCategories";
-import { parseCoupangHtml, CoupangProduct } from "@/lib/coupang/parser";
+import { parseCoupangHtml, CoupangProduct, ParseResult } from "@/lib/coupang/parser";
 
 interface VideoResult {
   videoId: string;
@@ -107,6 +107,7 @@ export default function BulkProductPage() {
   // Step 1: HTML Input
   const [htmlInput, setHtmlInput] = useState("");
   const [parseError, setParseError] = useState("");
+  const [parseWarning, setParseWarning] = useState("");
 
   // Step 2: Parsed Products
   const [products, setProducts] = useState<ProductWithVideos[]>([]);
@@ -126,12 +127,18 @@ export default function BulkProductPage() {
   // Parse HTML
   const handleParse = () => {
     setParseError("");
+    setParseWarning("");
     try {
-      const { pageType, products: parsed } = parseCoupangHtml(htmlInput);
+      const { pageType, products: parsed, warning, totalContainers, hiddenContainers } = parseCoupangHtml(htmlInput);
 
       if (parsed.length === 0) {
         setParseError("상품을 찾을 수 없습니다. HTML을 확인해주세요.");
         return;
+      }
+
+      // Show warning if some products were not loaded
+      if (warning) {
+        setParseWarning(warning);
       }
 
       const productsWithMeta: ProductWithVideos[] = parsed.map((p, idx) => ({
@@ -208,11 +215,11 @@ export default function BulkProductPage() {
   // Register all selected products
   const handleRegisterAll = async () => {
     const toRegister = products.filter(
-      (p) => p.selected && p.videos.length > 0 && p.category && !p.isRegistered
+      (p) => p.selected && p.videos.length > 0 && p.category && p.affiliateUrl && !p.isRegistered
     );
 
     if (toRegister.length === 0) {
-      alert("등록할 상품이 없습니다. 카테고리와 영상을 선택해주세요.");
+      alert("등록할 상품이 없습니다. 카테고리, Affiliate URL, 영상을 모두 입력해주세요.");
       return;
     }
 
@@ -249,7 +256,7 @@ export default function BulkProductPage() {
 
   const selectedCount = products.filter((p) => p.selected).length;
   const readyCount = products.filter(
-    (p) => p.selected && p.videos.length > 0 && p.category
+    (p) => p.selected && p.videos.length > 0 && p.category && p.affiliateUrl
   ).length;
   const registeredCount = products.filter((p) => p.isRegistered).length;
 
@@ -275,13 +282,25 @@ export default function BulkProductPage() {
         <CardContent>
           <div className="space-y-4">
             <div className="text-sm text-muted-foreground bg-muted p-3 rounded-lg">
-              <p className="font-medium mb-2">사용 방법:</p>
+              <p className="font-medium mb-2">사용 방법 (Console 스크립트):</p>
               <ol className="list-decimal list-inside space-y-1">
                 <li>쿠팡 골드박스 페이지 접속</li>
-                <li>F12 (개발자 도구) → Elements 탭</li>
-                <li>상품 목록 영역 선택 → 우클릭 → Copy → Copy outerHTML</li>
-                <li>아래 입력창에 붙여넣기</li>
+                <li>F12 (개발자 도구) → Console 탭</li>
+                <li>allow pasting 입력 후 Enter (최초 1회)</li>
+                <li>아래 코드를 복사하여 붙여넣기 후 Enter (자동 스크롤 시작)</li>
               </ol>
+              <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
+{`(async()=>{const d={};const get=()=>{document.querySelectorAll('.product-item').forEach(item=>{const nameEl=item.querySelector('.product-description .LinesEllipsis');const name=nameEl?.textContent?.trim();if(!name||d[name])return;const img=item.querySelector('.product-picture img');const priceEl=item.querySelector('.sale-price .currency-label');const discountEl=item.querySelector('.discount');const price=priceEl?.textContent?.match(/[\\d,]+/)?.[0];const discountMatch=discountEl?.textContent?.match(/(\\d+)%.*?([\\d,]+)/);d[name]={name,image:img?.src||'',price,originalPrice:discountMatch?.[2],discount:discountMatch?.[1]}});return Object.keys(d).length};console.log('스크롤 시작...');let prev=0,cnt=0;while(cnt<100){const n=get();console.log('현재:',n,'개');window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;console.log('완료!',arr.length,'개');console.log(json);try{await navigator.clipboard.writeText(json);alert(arr.length+'개 상품 복사 완료!')}catch(e){alert(arr.length+'개 파싱 완료! 콘솔에서 copy(_coupangData) 실행하세요')}})();`}
+              </pre>
+              <p className="mt-2 text-xs text-amber-600">복사 실패 시: 콘솔에 <code className="bg-background px-1 rounded">copy(_coupangData)</code> 입력</p>
+              <p className="mt-1 text-xs text-muted-foreground">※ 새 골드박스 페이지용 (product-item 구조)</p>
+              <details className="mt-3">
+                <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">이전 버전 스크립트 (discount-product-unit 구조)</summary>
+                <pre className="mt-2 p-2 bg-background rounded text-xs overflow-x-auto whitespace-pre-wrap break-all">
+{`(async()=>{const d={};const get=()=>{document.querySelectorAll('a[href*="/products/"]').forEach(a=>{let c=a.closest('.discount-product-unit')||a.closest('[class*="product"]');if(!c)return;let t=c.querySelector('.info_section__title');let name=t?.textContent?.trim();if(!name||d[name])return;const i=c.querySelector('img[src*="coupangcdn"]');d[name]={name,url:a.href,image:i?.src||''}});return Object.keys(d).length};let prev=0,cnt=0;while(cnt<100){get();window.scrollBy(0,600);await new Promise(r=>setTimeout(r,250));if(window.scrollY===prev)break;prev=window.scrollY;cnt++}get();window.scrollTo(0,0);const arr=Object.values(d);const json=JSON.stringify(arr,null,2);window._coupangData=json;try{await navigator.clipboard.writeText(json);alert(arr.length+'개 복사!')}catch(e){alert(arr.length+'개 파싱! copy(_coupangData) 실행')}})();`}
+                </pre>
+              </details>
+              <p className="mt-2 text-xs">5. 자동 스크롤 완료 후 아래 입력창에 Ctrl+V로 붙여넣기</p>
             </div>
 
             <textarea
@@ -293,6 +312,17 @@ export default function BulkProductPage() {
 
             {parseError && (
               <p className="text-sm text-destructive">{parseError}</p>
+            )}
+
+            {parseWarning && (
+              <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                <p className="text-sm text-amber-800 font-medium">
+                  ⚠️ {parseWarning}
+                </p>
+                <p className="text-xs text-amber-600 mt-1">
+                  Tip: 쿠팡 페이지를 끝까지 스크롤하면 모든 상품이 로드됩니다.
+                </p>
+              </div>
             )}
 
             <div className="flex items-center gap-4">
@@ -400,48 +430,69 @@ export default function BulkProductPage() {
                         </div>
 
                         {product.selected && !product.isRegistered && (
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Category */}
-                            <select
-                              value={product.category}
-                              onChange={(e) =>
-                                updateProduct(product.id, { category: e.target.value })
-                              }
-                              className="px-2 py-1 border rounded text-sm"
-                            >
-                              <option value="">카테고리 선택</option>
-                              {categories?.map((cat) => (
-                                <option key={cat.key} value={cat.key}>
-                                  {cat.name}
-                                </option>
-                              ))}
-                            </select>
-
-                            {/* Video count */}
-                            <Badge variant={product.videos.length > 0 ? "default" : "outline"}>
-                              영상 {product.videos.length}개
-                            </Badge>
-
-                            {/* Search button */}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setActiveProductId(
-                                  activeProductId === product.id ? null : product.id
-                                );
-                                if (!searchResults[product.id]) {
-                                  handleSearchVideos(product.id);
+                          <div className="space-y-2">
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Category */}
+                              <select
+                                value={product.category}
+                                onChange={(e) =>
+                                  updateProduct(product.id, { category: e.target.value })
                                 }
-                              }}
-                              disabled={product.isSearching}
-                            >
-                              {product.isSearching
-                                ? "검색 중..."
-                                : activeProductId === product.id
-                                ? "영상 선택 닫기"
-                                : "영상 검색"}
-                            </Button>
+                                className="px-2 py-1 border rounded text-sm"
+                              >
+                                <option value="">카테고리 선택</option>
+                                {categories?.map((cat) => (
+                                  <option key={cat.key} value={cat.key}>
+                                    {cat.name}
+                                  </option>
+                                ))}
+                              </select>
+
+                              {/* Video count */}
+                              <Badge variant={product.videos.length > 0 ? "default" : "outline"}>
+                                영상 {product.videos.length}개
+                              </Badge>
+
+                              {/* Affiliate URL status */}
+                              {!product.affiliateUrl && (
+                                <Badge variant="outline" className="text-amber-600 border-amber-300">
+                                  URL 필요
+                                </Badge>
+                              )}
+
+                              {/* Search button */}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => {
+                                  setActiveProductId(
+                                    activeProductId === product.id ? null : product.id
+                                  );
+                                  if (!searchResults[product.id]) {
+                                    handleSearchVideos(product.id);
+                                  }
+                                }}
+                                disabled={product.isSearching}
+                              >
+                                {product.isSearching
+                                  ? "검색 중..."
+                                  : activeProductId === product.id
+                                  ? "영상 선택 닫기"
+                                  : "영상 검색"}
+                              </Button>
+                            </div>
+
+                            {/* Affiliate URL Input */}
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={product.affiliateUrl}
+                                onChange={(e) =>
+                                  updateProduct(product.id, { affiliateUrl: e.target.value })
+                                }
+                                placeholder="Affiliate URL (쿠팡 파트너스에서 생성)"
+                                className="flex-1 h-8 text-sm"
+                              />
+                            </div>
                           </div>
                         )}
                       </div>
@@ -534,7 +585,7 @@ export default function BulkProductPage() {
                     준비된 상품 {readyCount}개를 등록합니다.
                     {readyCount !== selectedCount && (
                       <span className="text-amber-600 ml-2">
-                        (카테고리 또는 영상이 선택되지 않은 상품은 제외됩니다)
+                        (카테고리, Affiliate URL, 영상이 모두 입력되지 않은 상품은 제외됩니다)
                       </span>
                     )}
                   </p>

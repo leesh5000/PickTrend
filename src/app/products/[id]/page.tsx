@@ -85,12 +85,12 @@ export default function ProductPage({ params }: { params: { id: string } }) {
         <div className="flex flex-col md:flex-row gap-6 mb-8">
           <div
             className={`w-full md:w-64 h-64 bg-muted rounded-lg overflow-hidden flex-shrink-0 ${
-              product.productUrl ? "cursor-pointer hover:opacity-90 transition" : ""
+              product.affiliateUrl ? "cursor-pointer hover:opacity-90 transition" : ""
             }`}
             onClick={() => {
-              if (product.productUrl) {
+              if (product.affiliateUrl) {
                 trackClick(product.id);
-                window.open(product.productUrl, "_blank");
+                window.open(product.affiliateUrl, "_blank");
               }
             }}
           >
@@ -108,7 +108,19 @@ export default function ProductPage({ params }: { params: { id: string } }) {
           </div>
 
           <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-2">{product.name}</h1>
+            <h1
+              className={`text-3xl font-bold mb-2 ${
+                product.affiliateUrl ? "cursor-pointer hover:text-primary transition-colors" : ""
+              }`}
+              onClick={() => {
+                if (product.affiliateUrl) {
+                  trackClick(product.id);
+                  window.open(product.affiliateUrl, "_blank");
+                }
+              }}
+            >
+              {product.name}
+            </h1>
             {product.category && (
               <Badge variant="secondary" className="mb-4">
                 {categoryMap[product.category] || product.category}
@@ -160,15 +172,44 @@ export default function ProductPage({ params }: { params: { id: string } }) {
               </div>
             </div>
 
-            {product.productUrl && (
+            {product.affiliateUrl && (
               <Button
-                className="w-full mt-4"
+                size="lg"
+                className="w-full mt-6 h-14 text-lg font-bold bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => {
                   trackClick(product.id);
-                  window.open(product.productUrl, "_blank");
+                  window.open(product.affiliateUrl, "_blank");
                 }}
               >
-                상품 보러가기
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-6 w-6 mr-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+                상품 구매하러 가기
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  className="h-5 w-5 ml-2"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
               </Button>
             )}
           </div>
@@ -203,11 +244,18 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                         No Thumbnail
                       </div>
                     )}
-                    {video.videoType === "SHORTS" && (
-                      <Badge className="absolute top-2 left-2" variant="destructive">
-                        Shorts
-                      </Badge>
-                    )}
+                    <div className="absolute top-2 left-2 flex gap-1">
+                      {video.videoType === "SHORTS" && (
+                        <Badge variant="destructive">
+                          Shorts
+                        </Badge>
+                      )}
+                      {(video.scoreBreakdown?.totalScore >= 70 || (video.latestMetric?.viewCount || 0) >= 100000) && (
+                        <Badge className="bg-yellow-500 hover:bg-yellow-600 text-black">
+                          인기
+                        </Badge>
+                      )}
+                    </div>
                   </div>
                   <h3 className="font-medium line-clamp-2 group-hover:text-primary transition">
                     {video.title}
@@ -215,10 +263,21 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                   <p className="text-sm text-muted-foreground mt-1">
                     {video.channelName}
                   </p>
-                  <div className="flex gap-2 text-xs text-muted-foreground mt-1">
-                    <span>조회수 {formatNumber(video.latestMetric?.viewCount || 0)}</span>
-                    <span>·</span>
-                    <span>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs mt-2">
+                    <span className="flex items-center gap-1 text-foreground/80">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      <span className="font-medium">{formatNumber(video.latestMetric?.viewCount || 0)}</span>
+                    </span>
+                    <span className="flex items-center gap-1 text-red-500">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+                      </svg>
+                      <span className="font-medium">{formatNumber(video.latestMetric?.likeCount || 0)}</span>
+                    </span>
+                    <span className="text-muted-foreground">
                       {format(new Date(video.publishedAt), "yyyy.M.d", {
                         locale: ko,
                       })}
