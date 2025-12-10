@@ -73,6 +73,16 @@ npm run db:studio    # Open Prisma Studio GUI
 - Video count bonus: 0-5 points based on number of videos
 - Final score capped at 100
 
+### Public APIs
+
+| Route | Method | Purpose |
+|-------|--------|---------|
+| `/api/rankings` | GET | Fetch rankings with pagination (period, category filters) |
+| `/api/products/[id]` | GET | Fetch single product with videos and metrics |
+| `/api/categories` | GET | Fetch active categories |
+| `/api/track/click` | POST | Track affiliate link clicks |
+| `/api/track/view` | POST | Track page views |
+
 ### Admin APIs
 
 | Route | Method | Purpose |
@@ -83,6 +93,12 @@ npm run db:studio    # Open Prisma Studio GUI
 | `/api/admin/products/[id]` | GET/PATCH/DELETE | Product CRUD |
 | `/api/admin/videos` | GET/POST | Video management |
 | `/api/admin/videos/[id]` | GET/PATCH/DELETE | Video CRUD |
+| `/api/admin/categories` | GET/POST | Category management |
+| `/api/admin/categories/[id]` | GET/PATCH/DELETE | Category CRUD |
+| `/api/admin/dashboard` | GET | Dashboard stats |
+| `/api/admin/analytics` | GET | Analytics data |
+| `/api/admin/opengraph` | GET | Fetch Open Graph metadata |
+| `/api/admin/rankings/[id]` | DELETE | Delete ranking period |
 
 ### UI & Theming
 
@@ -124,6 +140,14 @@ Admin product registration forms persist data to localStorage:
 ### Video Search Results Sorting
 
 Search results are sorted by: score (desc) → viewCount (desc) → likeCount (desc)
+
+### Responsive Design
+
+Mobile-first approach with Tailwind breakpoints:
+- Rankings page: Vertical card layout on mobile (`sm:hidden`), horizontal on sm+
+- Product detail: Responsive text sizes (`text-xl sm:text-2xl md:text-3xl`)
+- Admin layout: Slide-out sidebar on mobile, fixed sidebar on lg+
+- Key patterns: `sm:hidden` / `hidden sm:flex` for conditional layouts
 
 ## Environment Variables
 

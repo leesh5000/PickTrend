@@ -18,7 +18,7 @@ export function Header() {
     <header className="border-b">
       <div className="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
         <Link href="/" className="text-xl font-bold">
-          <span className="text-primary">Pick</span>Trend
+          <span className="text-primary">Pick</span>Ranky
         </Link>
 
         {/* Desktop Navigation */}

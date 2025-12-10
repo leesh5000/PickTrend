@@ -49,7 +49,7 @@ export default function Home() {
         <section className="py-20 px-4">
           <div className="max-w-6xl mx-auto text-center">
             <h1 className="text-4xl md:text-6xl font-bold mb-6">
-              <span className="text-primary">Pick</span>Trend
+              <span className="text-primary">Pick</span>Ranky
             </h1>
             <p className="text-xl text-muted-foreground mb-4 max-w-2xl mx-auto">
               모든 트렌드를 한눈에
@@ -130,7 +130,7 @@ export default function Home() {
           <div className="max-w-6xl mx-auto text-center">
             <h2 className="text-2xl font-bold mb-4">실시간 트렌드 분석</h2>
             <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-              PickTrend는 다양한 소스에서 데이터를 수집하여
+              PickRanky는 다양한 소스에서 데이터를 수집하여
               <br />
               실시간으로 트렌드를 분석하고 순위를 제공합니다
             </p>

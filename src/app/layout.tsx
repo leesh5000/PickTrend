@@ -6,7 +6,7 @@ import { Providers } from "@/components/providers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PickTrend - 트렌딩 쇼핑 상품 랭킹",
+  title: "PickRanky - 트렌딩 쇼핑 상품 랭킹",
   description: "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위",
 };
 

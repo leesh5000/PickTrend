@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { useCategoryMap } from "@/hooks/useCategories";
 import { format } from "date-fns";
-import { ko } from "date-fns/locale";
 
 interface RankingItem {
   id: string;
@@ -57,6 +56,10 @@ async function fetchRankings(params: {
   category?: string;
   page: number;
   limit: number;
+  year?: number;
+  month?: number;
+  day?: number;
+  slot?: number;
 }): Promise<RankingsResponse> {
   const searchParams = new URLSearchParams({
     period: params.period,
@@ -66,17 +69,56 @@ async function fetchRankings(params: {
   if (params.category) {
     searchParams.set("category", params.category);
   }
+  if (params.year) {
+    searchParams.set("year", params.year.toString());
+  }
+  if (params.month) {
+    searchParams.set("month", params.month.toString());
+  }
+  if (params.day) {
+    searchParams.set("day", params.day.toString());
+  }
+  if (params.slot !== undefined) {
+    searchParams.set("slot", params.slot.toString());
+  }
 
   const res = await fetch(`/api/rankings?${searchParams}`);
   return res.json();
+}
+
+// Get today's date in YYYY-MM-DD format
+function getTodayString(): string {
+  const today = new Date();
+  return format(today, "yyyy-MM-dd");
+}
+
+// Get current month in YYYY-MM format
+function getCurrentMonthString(): string {
+  const today = new Date();
+  return format(today, "yyyy-MM");
 }
 
 export default function RankingsPage() {
   const [period, setPeriod] = useState("daily");
   const [category, setCategory] = useState<string | undefined>();
   const [limit, setLimit] = useState<LimitOption>(50);
+  const [selectedDate, setSelectedDate] = useState(getTodayString());
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthString());
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const { categoryMap, categories } = useCategoryMap();
+
+  // Parse selected date/month into year, month, day
+  const getDateParams = () => {
+    if (period === "monthly") {
+      const [year, month] = selectedMonth.split("-").map(Number);
+      return { year, month, day: undefined };
+    } else {
+      const [year, month, day] = selectedDate.split("-").map(Number);
+      return { year, month, day };
+    }
+  };
+
+  const dateParams = getDateParams();
 
   const {
     data,
@@ -85,9 +127,17 @@ export default function RankingsPage() {
     hasNextPage,
     fetchNextPage,
   } = useInfiniteQuery({
-    queryKey: ["rankings", period, category, limit],
+    queryKey: ["rankings", period, category, limit, selectedDate, selectedMonth],
     queryFn: ({ pageParam = 1 }) =>
-      fetchRankings({ period, category, page: pageParam, limit }),
+      fetchRankings({
+        period,
+        category,
+        page: pageParam,
+        limit,
+        year: dateParams.year,
+        month: dateParams.month,
+        day: dateParams.day,
+      }),
     getNextPageParam: (lastPage) => {
       const { page, totalPages } = lastPage.data.pagination;
       return page < totalPages ? page + 1 : undefined;
@@ -122,7 +172,6 @@ export default function RankingsPage() {
   // Flatten all pages into a single array
   const rankings: RankingItem[] =
     data?.pages.flatMap((page) => page.data.rankings) || [];
-  const periodInfo = data?.pages[0]?.data?.period;
   const totalCount = data?.pages[0]?.data?.pagination?.total || 0;
 
   const handleFilterChange = (
@@ -198,16 +247,40 @@ export default function RankingsPage() {
           </div>
         </div>
 
-        {/* Period Info & Count */}
+        {/* Date Selector & Count */}
         <div className="flex justify-between items-center mb-4">
-          {periodInfo && (
-            <p className="text-sm text-muted-foreground">
-              {format(new Date(periodInfo.startedAt), "yyyy년 M월 d일", {
-                locale: ko,
-              })}{" "}
-              기준
-            </p>
-          )}
+          <div className="flex items-center gap-2">
+            <svg
+              className="w-4 h-4 text-muted-foreground"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+            {period === "monthly" ? (
+              <input
+                type="month"
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                max={getCurrentMonthString()}
+                className="text-sm px-3 py-2 border rounded-lg bg-background hover:bg-muted transition-colors cursor-pointer"
+              />
+            ) : (
+              <input
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                max={getTodayString()}
+                className="text-sm px-3 py-2 border rounded-lg bg-background hover:bg-muted transition-colors cursor-pointer"
+              />
+            )}
+          </div>
           {totalCount > 0 && (
             <p className="text-sm text-muted-foreground">
               총 {totalCount.toLocaleString()}개 상품
@@ -392,3 +465,4 @@ function formatNumber(num: number): string {
   }
   return num.toString();
 }
+
