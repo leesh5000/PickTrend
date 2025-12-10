@@ -331,9 +331,14 @@ export default function BulkProductPage() {
     setIsRegistering(false);
     setRegistrationResults({ success, failed });
 
-    // Clear saved data if all products are registered
+    // Show result alert
     if (failed === 0 && success > 0) {
+      alert(`${success}개 상품이 성공적으로 등록되었습니다!`);
       clearSavedData();
+    } else if (success > 0 && failed > 0) {
+      alert(`등록 완료: 성공 ${success}개, 실패 ${failed}개`);
+    } else if (failed > 0 && success === 0) {
+      alert(`등록 실패: ${failed}개 상품 등록에 실패했습니다.`);
     }
   };
 

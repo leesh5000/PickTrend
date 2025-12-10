@@ -179,6 +179,7 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get("search") || "";
     const category = searchParams.get("category");
     const isActive = searchParams.get("isActive");
+    const sortBy = searchParams.get("sortBy") || "createdAtDesc";
 
     // Build filter
     const where: any = {};
@@ -195,6 +196,23 @@ export async function GET(request: NextRequest) {
       where.isActive = isActive === "true";
     }
 
+    // Build orderBy based on sortBy parameter
+    let orderBy: any = { createdAt: "desc" };
+    switch (sortBy) {
+      case "createdAtAsc":
+        orderBy = { createdAt: "asc" };
+        break;
+      case "createdAtDesc":
+        orderBy = { createdAt: "desc" };
+        break;
+      case "name":
+        orderBy = { name: "asc" };
+        break;
+      case "nameDesc":
+        orderBy = { name: "desc" };
+        break;
+    }
+
     const [products, total] = await Promise.all([
       prisma.product.findMany({
         where,
@@ -206,7 +224,7 @@ export async function GET(request: NextRequest) {
             },
           },
         },
-        orderBy: { createdAt: "desc" },
+        orderBy,
         skip: (page - 1) * limit,
         take: limit,
       }),

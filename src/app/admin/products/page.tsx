@@ -9,10 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useCategoryMap } from "@/hooks/useCategories";
 
+const SORT_OPTIONS = [
+  { value: "createdAtDesc", label: "등록일 (최신순)" },
+  { value: "createdAtAsc", label: "등록일 (오래된순)" },
+  { value: "name", label: "이름 (가나다순)" },
+  { value: "nameDesc", label: "이름 (역순)" },
+] as const;
+type SortOption = (typeof SORT_OPTIONS)[number]["value"];
+
 async function fetchProducts(params: {
   page: number;
   search?: string;
   category?: string;
+  sortBy?: string;
 }) {
   const searchParams = new URLSearchParams({
     page: params.page.toString(),
@@ -20,6 +29,7 @@ async function fetchProducts(params: {
   });
   if (params.search) searchParams.set("search", params.search);
   if (params.category) searchParams.set("category", params.category);
+  if (params.sortBy) searchParams.set("sortBy", params.sortBy);
 
   const res = await fetch(`/api/admin/products?${searchParams}`);
   return res.json();
@@ -29,11 +39,12 @@ export default function AdminProductsPage() {
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
+  const [sortBy, setSortBy] = useState<SortOption>("createdAtDesc");
   const { categoryMap, categories } = useCategoryMap();
 
   const { data, isLoading } = useQuery({
-    queryKey: ["admin-products", page, search, category],
-    queryFn: () => fetchProducts({ page, search, category }),
+    queryKey: ["admin-products", page, search, category, sortBy],
+    queryFn: () => fetchProducts({ page, search, category, sortBy }),
   });
 
   const products = data?.data?.products || [];
@@ -61,6 +72,20 @@ export default function AdminProductsPage() {
               }}
               className="max-w-xs"
             />
+            <select
+              value={sortBy}
+              onChange={(e) => {
+                setSortBy(e.target.value as SortOption);
+                setPage(1);
+              }}
+              className="px-3 py-2 border rounded-lg text-sm bg-background"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
             <div className="flex gap-2 flex-wrap">
               <Button
                 variant={!category ? "default" : "outline"}

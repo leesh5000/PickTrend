@@ -107,7 +107,7 @@ export default function ProductPage({ params }: { params: { id: string } }) {
                 </div>
               )}
             </div>
-            <p className="hidden md:block text-[11px] text-muted-foreground/60 mt-3 leading-relaxed">
+            <p className="hidden md:block text-[11px] text-blue-500 mt-3 leading-relaxed">
               이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
             </p>
           </div>

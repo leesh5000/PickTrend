@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 
+// Disable caching to always return fresh data
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     // Get active categories from database

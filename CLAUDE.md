@@ -107,6 +107,7 @@ npm run db:studio    # Open Prisma Studio GUI
 - `src/components/ui/` - Reusable UI components (Button, Card, Badge, etc.)
 - Dark/light mode via `next-themes` with `class` attribute strategy
 - Blue brand color (#3B82F6) with Vercel-style backgrounds
+- PWA support: `manifest.ts` + SVG icons (`icon.svg`, `apple-icon.svg`)
 
 ### Authentication
 
