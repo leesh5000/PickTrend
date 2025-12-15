@@ -52,8 +52,11 @@ export async function GET(request: NextRequest) {
 
     // If no ranking period exists, fetch directly from keywords with metrics
     if (!rankingPeriod) {
-      // Fallback: Get keywords with their latest metrics
-      const where: any = { isActive: true };
+      // Fallback: Get keywords with their latest metrics (exclude community sources)
+      const where: any = {
+        isActive: true,
+        source: { notIn: ["DCINSIDE", "FMKOREA", "THEQOO"] },
+      };
       if (category) {
         where.category = category;
       }

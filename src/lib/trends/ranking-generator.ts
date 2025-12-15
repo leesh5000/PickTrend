@@ -210,9 +210,14 @@ export async function generateTrendRankings(
     }
   }
 
-  // Get all active keywords
+  // Get all active keywords (exclude community sources from ranking)
   const keywords = await prisma.trendKeyword.findMany({
-    where: { isActive: true },
+    where: {
+      isActive: true,
+      source: {
+        notIn: ["DCINSIDE", "FMKOREA", "THEQOO"],
+      },
+    },
     select: { id: true },
   });
 

@@ -11,8 +11,11 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(Math.max(1, parseInt(searchParams.get("limit") || "10")), 50);
     const category = searchParams.get("category");
 
-    // Build filter
-    const where: any = { isActive: true };
+    // Build filter (exclude community sources from ranking)
+    const where: any = {
+      isActive: true,
+      source: { notIn: ["DCINSIDE", "FMKOREA", "THEQOO"] },
+    };
     if (category) {
       where.category = category;
     }
