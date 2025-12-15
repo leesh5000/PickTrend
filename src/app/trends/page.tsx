@@ -423,7 +423,7 @@ export default function TrendsPage() {
                             </Badge>
                           </div>
                           <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                            <span>검색량 {item.searchVolume}</span>
+                            <span>점수 {item.score.toFixed(1)}</span>
                             <span>연관상품 {item.productCount}개</span>
                           </div>
                         </div>
