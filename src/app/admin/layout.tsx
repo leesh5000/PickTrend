@@ -13,6 +13,7 @@ const navItems = [
   { href: "/admin/products/new", label: "상품 등록", icon: "➕" },
   { href: "/admin/products/bulk", label: "일괄 등록", icon: "📋" },
   { href: "/admin/products", label: "상품 관리", icon: "📦" },
+  { href: "/admin/trends", label: "트렌드 관리", icon: "🔥" },
   { href: "/admin/categories", label: "카테고리 관리", icon: "🏷️" },
   { href: "/admin/videos", label: "영상 관리", icon: "🎬" },
   { href: "/admin/analytics", label: "분석", icon: "📈" },

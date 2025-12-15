@@ -46,9 +46,10 @@ model Product {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
-  videos   Video[]
-  rankings ProductRanking[]
-  clicks   LinkClick[]
+  videos       Video[]
+  rankings     ProductRanking[]
+  clicks       LinkClick[]
+  trendMatches TrendProductMatch[]
 
   @@index([category])
   @@index([isActive])
@@ -244,4 +245,124 @@ model SystemConfig {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("system_configs")
+}
+
+// =====================
+// Trend Models
+// =====================
+
+enum TrendSource {
+  NAVER_DATALAB
+  GOOGLE_TRENDS
+  DAUM
+  MANUAL
+}
+
+model TrendKeyword {
+  id                String      @id @default(cuid())
+  keyword           String
+  normalizedKeyword String      @unique @map("normalized_keyword")
+  source            TrendSource @default(MANUAL)
+  category          String?
+  isActive          Boolean     @default(true) @map("is_active")
+  createdAt         DateTime    @default(now()) @map("created_at")
+  updatedAt         DateTime    @updatedAt @map("updated_at")
+
+  metrics        TrendMetric[]
+  productMatches TrendProductMatch[]
+  rankings       TrendKeywordRanking[]
+
+  @@index([source, isActive])
+  @@index([category])
+  @@index([isActive])
+  @@map("trend_keywords")
+}
+
+model TrendMetric {
+  id           String      @id @default(cuid())
+  keywordId    String      @map("keyword_id")
+  collectedAt  DateTime    @map("collected_at")
+  searchVolume Int         @map("search_volume") // 0-100 정규화
+  source       TrendSource
+  rank         Int? // 소스별 순위 (다음 등)
+
+  keyword TrendKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, collectedAt, source])
+  @@index([collectedAt])
+  @@index([keywordId, collectedAt(sort: Desc)])
+  @@map("trend_metrics")
+}
+
+model TrendProductMatch {
+  id         String   @id @default(cuid())
+  keywordId  String   @map("keyword_id")
+  productId  String   @map("product_id")
+  matchScore Float    @map("match_score") // 0-100
+  matchType  String   @map("match_type") // name, category, brand, manual
+  isManual   Boolean  @default(false) @map("is_manual")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  keyword TrendKeyword @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  product Product      @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, productId])
+  @@index([keywordId, matchScore(sort: Desc)])
+  @@index([productId])
+  @@map("trend_product_matches")
+}
+
+model TrendRankingPeriod {
+  id         String     @id @default(cuid())
+  periodType PeriodType @map("period_type")
+  year       Int
+  month      Int?
+  day        Int?
+  startedAt  DateTime   @map("started_at")
+  endedAt    DateTime   @map("ended_at")
+  createdAt  DateTime   @default(now()) @map("created_at")
+
+  rankings TrendKeywordRanking[]
+
+  @@unique([periodType, year, month, day])
+  @@index([periodType, year])
+  @@index([periodType, year, month])
+  @@map("trend_ranking_periods")
+}
+
+model TrendKeywordRanking {
+  id           String   @id @default(cuid())
+  keywordId    String   @map("keyword_id")
+  periodId     String   @map("period_id")
+  rank         Int
+  previousRank Int?     @map("previous_rank")
+  score        Float
+  searchVolume Int      @map("search_volume")
+  productCount Int      @map("product_count")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  keyword TrendKeyword       @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+  period  TrendRankingPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@unique([keywordId, periodId])
+  @@index([periodId, rank])
+  @@index([periodId, score(sort: Desc)])
+  @@map("trend_keyword_rankings")
+}
+
+model TrendCollectionJob {
+  id            String      @id @default(cuid())
+  source        TrendSource
+  status        JobStatus   @default(PENDING)
+  startedAt     DateTime?   @map("started_at")
+  completedAt   DateTime?   @map("completed_at")
+  keywordsFound Int         @default(0) @map("keywords_found")
+  keywordsAdded Int         @default(0) @map("keywords_added")
+  errorLog      String?     @map("error_log")
+  createdAt     DateTime    @default(now()) @map("created_at")
+
+  @@index([source, status])
+  @@index([createdAt])
+  @@map("trend_collection_jobs")
 }
