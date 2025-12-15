@@ -18,8 +18,8 @@ const TREND_SERVICES = [
     name: "검색어 트렌드",
     description: "지금 가장 많이 검색되는 키워드",
     icon: "🔍",
-    href: "#",
-    active: false,
+    href: "/trends",
+    active: true,
   },
   {
     name: "기사 트렌드",
