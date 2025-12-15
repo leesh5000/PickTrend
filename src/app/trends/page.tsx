@@ -157,6 +157,14 @@ function getSourceLabel(source: TrendSource) {
       return "G";
     case "DAUM":
       return "D";
+    case "ZUM":
+      return "Z";
+    case "DCINSIDE":
+      return "DC";
+    case "FMKOREA":
+      return "FM";
+    case "THEQOO":
+      return "QOO";
     case "MANUAL":
     default:
       return "M";

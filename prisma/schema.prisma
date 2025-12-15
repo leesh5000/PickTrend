@@ -257,6 +257,9 @@ enum TrendSource {
   DAUM
   ZUM
   MANUAL
+  DCINSIDE
+  FMKOREA
+  THEQOO
 }
 
 model TrendKeyword {
@@ -269,9 +272,10 @@ model TrendKeyword {
   createdAt         DateTime    @default(now()) @map("created_at")
   updatedAt         DateTime    @updatedAt @map("updated_at")
 
-  metrics        TrendMetric[]
-  productMatches TrendProductMatch[]
-  rankings       TrendKeywordRanking[]
+  metrics          TrendMetric[]
+  productMatches   TrendProductMatch[]
+  rankings         TrendKeywordRanking[]
+  clusterMembers   TrendKeywordClusterMember[]
 
   @@index([source, isActive])
   @@index([category])
@@ -366,4 +370,39 @@ model TrendCollectionJob {
   @@index([source, status])
   @@index([createdAt])
   @@map("trend_collection_jobs")
+}
+
+// =====================
+// Trend Keyword Cluster Models
+// =====================
+
+model TrendKeywordCluster {
+  id             String   @id @default(cuid())
+  name           String   // Representative keyword for the cluster
+  normalizedName String   @unique @map("normalized_name")
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  members TrendKeywordClusterMember[]
+
+  @@index([isActive])
+  @@index([createdAt])
+  @@map("trend_keyword_clusters")
+}
+
+model TrendKeywordClusterMember {
+  id              String   @id @default(cuid())
+  clusterId       String   @map("cluster_id")
+  keywordId       String   @map("keyword_id")
+  similarityScore Float    @map("similarity_score") // 0-1 scale
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  cluster TrendKeywordCluster @relation(fields: [clusterId], references: [id], onDelete: Cascade)
+  keyword TrendKeyword        @relation(fields: [keywordId], references: [id], onDelete: Cascade)
+
+  @@unique([clusterId, keywordId])
+  @@index([keywordId])
+  @@index([clusterId, similarityScore(sort: Desc)])
+  @@map("trend_keyword_cluster_members")
 }

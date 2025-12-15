@@ -17,12 +17,13 @@ PickRanky (formerly PickTrend) is a trending shopping product ranking service th
 - **State**: React Query (server) + Zustand (client)
 - **Auth**: NextAuth.js with Credentials provider
 - **APIs**: YouTube Data API v3, Coupang affiliate
+- **Utilities**: cheerio (HTML parsing), date-fns (date formatting), zod (validation)
 
 ## Commands
 
 ```bash
 # Development
-npm run dev          # Start dev server (auto-runs prisma generate)
+npm run dev          # Start dev server (runs prisma generate via predev hook)
 npm run build        # Production build (includes prisma generate)
 npm run lint         # ESLint
 
@@ -32,6 +33,8 @@ npm run db:push      # Push schema changes (no migration)
 npm run db:migrate   # Create and run migrations (dev only)
 npm run db:studio    # Open Prisma Studio GUI
 ```
+
+Note: On Windows, `predev` script may not run automatically. Run `npm run db:generate` manually if Prisma client is not generated.
 
 ## Architecture
 
@@ -63,26 +66,43 @@ npm run db:studio    # Open Prisma Studio GUI
 
 Multi-source trend keyword collection system:
 
-**Sources:**
+**Search Trend Sources:**
 - `src/lib/trends/naver-datalab.ts` - Naver DataLab API (requires API keys)
 - `src/lib/trends/google-trends.ts` - Google Trends RSS feed (`https://trends.google.com/trending/rss?geo=KR`)
 - `src/lib/trends/zum-crawler.ts` - Zum homepage crawler (extracts from `window.__INITIAL_STATE__`)
-- `src/lib/trends/daum-crawler.ts` - Daum (currently non-functional, 투데이 버블 is JS-rendered)
+- `src/lib/trends/daum-crawler.ts` - Daum (non-functional: 투데이 버블 requires JS rendering)
+
+**Community Crawlers:**
+- `src/lib/trends/dcinside-crawler.ts` - DC Inside 실시간 베스트 (`gall.dcinside.com/board/lists/?id=dcbest`)
+- `src/lib/trends/fmkorea-crawler.ts` - FM Korea 인기글 (`www.fmkorea.com/best`)
+- `src/lib/trends/theqoo-crawler.ts` - TheQoo HOT (`theqoo.net/hot`)
 
 **Key Components:**
 - `src/lib/trends/matcher.ts` - Matches trend keywords to products (name similarity, category matching)
+- `src/lib/trends/keyword-cluster.ts` - Similarity-based keyword clustering (Jaro-Winkler + N-gram)
 - `src/app/admin/trends/page.tsx` - Admin trend management UI
+
+**Clustering System:**
+- Groups similar keywords from different sources using similarity threshold (default: 0.7)
+- Uses combined Jaro-Winkler and N-gram similarity for better matching
+- Cross-source bonus applied when keyword appears in multiple sources
+- Models: `TrendKeywordCluster`, `TrendKeywordClusterMember`
 
 **Data Flow:**
 1. Collection job fetches trending keywords from enabled sources
 2. Keywords normalized and saved to `TrendKeyword` table
 3. Metrics (search volume, rank) saved to `TrendMetric` table
-4. Matcher associates keywords with products via `TrendProductMatch`
+4. Clustering groups similar keywords via `TrendKeywordCluster`
+5. Matcher associates keywords with products via `TrendProductMatch`
 
 **Environment Variables:**
 - `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API
 - `GOOGLE_TRENDS_ENABLED` - Enable Google Trends RSS collection
 - `ZUM_CRAWLING_ENABLED` - Enable Zum homepage crawling
+- `DCINSIDE_CRAWLING_ENABLED` - Enable DC Inside 실시간 베스트 crawling
+- `FMKOREA_CRAWLING_ENABLED` - Enable FM Korea 인기글 crawling
+- `THEQOO_CRAWLING_ENABLED` - Enable TheQoo HOT crawling
+- `CLUSTER_SIMILARITY_THRESHOLD` - Minimum similarity for clustering (default: 0.7)
 
 ### Score Algorithm (100 Points Max)
 
@@ -147,6 +167,7 @@ Multi-source trend keyword collection system:
 | `/api/admin/trends/collect` | POST/GET | Trigger/view trend data collection |
 | `/api/admin/trends/match` | POST | Match keywords to products |
 | `/api/admin/trends/rankings` | POST/GET | Generate rankings / List ranking periods |
+| `/api/admin/trends/cluster` | POST/GET | Cluster keywords by similarity / List clusters |
 
 ### Trend APIs (Public)
 
@@ -218,11 +239,13 @@ Core models in `prisma/schema.prisma`:
 - `SystemConfig` - Key-value system configuration
 
 **Trend Models:**
-- `TrendKeyword` - Trend keywords with source (NAVER_DATALAB, GOOGLE_TRENDS, ZUM, DAUM, MANUAL)
+- `TrendKeyword` - Trend keywords with source (NAVER_DATALAB, GOOGLE_TRENDS, ZUM, DAUM, DCINSIDE, FMKOREA, THEQOO, MANUAL)
 - `TrendMetric` - Search volume/rank metrics per keyword and collection time
 - `TrendProductMatch` - Keyword-to-product associations with match score
 - `TrendRankingPeriod` / `TrendKeywordRanking` - Trend keyword rankings by period
 - `TrendCollectionJob` - Trend collection job tracking
+- `TrendKeywordCluster` - Groups of similar keywords from multiple sources
+- `TrendKeywordClusterMember` - Keyword membership in clusters with similarity scores
 
 ### Form State Persistence
 
@@ -256,6 +279,10 @@ Optional (Trend Collection):
 - `NAVER_CLIENT_ID` / `NAVER_CLIENT_SECRET` - Naver DataLab API keys
 - `GOOGLE_TRENDS_ENABLED` - Set to "true" to enable Google Trends RSS
 - `ZUM_CRAWLING_ENABLED` - Set to "true" to enable Zum crawling
+- `DCINSIDE_CRAWLING_ENABLED` - Set to "true" to enable DC Inside crawling
+- `FMKOREA_CRAWLING_ENABLED` - Set to "true" to enable FM Korea crawling
+- `THEQOO_CRAWLING_ENABLED` - Set to "true" to enable TheQoo crawling
+- `CLUSTER_SIMILARITY_THRESHOLD` - Similarity threshold for clustering (default: 0.7)
 
 ## Known Limitations
 

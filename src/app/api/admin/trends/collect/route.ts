@@ -6,6 +6,9 @@ import { collectAllNaverTrends, collectNaverTrendsForKeywords } from "@/lib/tren
 import { collectAllGoogleTrends, importGoogleTrendingKeywords } from "@/lib/trends/google-trends";
 import { collectAllDaumTrends } from "@/lib/trends/daum-crawler";
 import { collectAllZumTrends } from "@/lib/trends/zum-crawler";
+import { collectAllDCInsideTrends } from "@/lib/trends/dcinside-crawler";
+import { collectAllFMKoreaTrends } from "@/lib/trends/fmkorea-crawler";
+import { collectAllTheQooTrends } from "@/lib/trends/theqoo-crawler";
 import { TrendSource } from "@prisma/client";
 
 interface CollectRequest {
@@ -34,6 +37,9 @@ export async function POST(request: NextRequest) {
       google: null,
       daum: null,
       zum: null,
+      dcinside: null,
+      fmkorea: null,
+      theqoo: null,
     };
 
     const errors: string[] = [];
@@ -123,6 +129,57 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Collect from DC Inside
+    if (source === "ALL" || source === "DCINSIDE") {
+      try {
+        const result = await collectAllDCInsideTrends();
+        results.dcinside = {
+          jobId: result.jobId,
+          collected: result.collected,
+          imported: result.imported,
+          errors: result.errors,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`DC Inside: ${message}`);
+        results.dcinside = { error: message };
+      }
+    }
+
+    // Collect from FM Korea
+    if (source === "ALL" || source === "FMKOREA") {
+      try {
+        const result = await collectAllFMKoreaTrends();
+        results.fmkorea = {
+          jobId: result.jobId,
+          collected: result.collected,
+          imported: result.imported,
+          errors: result.errors,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`FM Korea: ${message}`);
+        results.fmkorea = { error: message };
+      }
+    }
+
+    // Collect from TheQoo
+    if (source === "ALL" || source === "THEQOO") {
+      try {
+        const result = await collectAllTheQooTrends();
+        results.theqoo = {
+          jobId: result.jobId,
+          collected: result.collected,
+          imported: result.imported,
+          errors: result.errors,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`TheQoo: ${message}`);
+        results.theqoo = { error: message };
+      }
+    }
+
     // Log admin action
     await prisma.adminAction.create({
       data: {
@@ -143,12 +200,18 @@ export async function POST(request: NextRequest) {
       (results.naver?.collected || 0) +
       (results.google?.collected || 0) +
       (results.daum?.collected || 0) +
-      (results.zum?.collected || 0);
+      (results.zum?.collected || 0) +
+      (results.dcinside?.collected || 0) +
+      (results.fmkorea?.collected || 0) +
+      (results.theqoo?.collected || 0);
 
     const totalImported =
       (results.google?.imported || 0) +
       (results.daum?.imported || 0) +
-      (results.zum?.imported || 0);
+      (results.zum?.imported || 0) +
+      (results.dcinside?.imported || 0) +
+      (results.fmkorea?.imported || 0) +
+      (results.theqoo?.imported || 0);
 
     return NextResponse.json({
       success: true,

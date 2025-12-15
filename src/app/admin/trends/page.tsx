@@ -17,6 +17,9 @@ const SOURCE_OPTIONS = [
   { value: "GOOGLE_TRENDS", label: "Google Trends" },
   { value: "DAUM", label: "다음" },
   { value: "ZUM", label: "줌" },
+  { value: "DCINSIDE", label: "DC인사이드" },
+  { value: "FMKOREA", label: "FM코리아" },
+  { value: "THEQOO", label: "더쿠" },
 ] as const;
 
 const SORT_OPTIONS = [
@@ -38,6 +41,12 @@ function getSourceBadgeVariant(source: TrendSource) {
       return "outline";
     case "ZUM":
       return "destructive";
+    case "DCINSIDE":
+      return "default";
+    case "FMKOREA":
+      return "secondary";
+    case "THEQOO":
+      return "outline";
     case "MANUAL":
     default:
       return "secondary";
@@ -54,6 +63,12 @@ function getSourceLabel(source: TrendSource) {
       return "다음";
     case "ZUM":
       return "줌";
+    case "DCINSIDE":
+      return "DC";
+    case "FMKOREA":
+      return "FM";
+    case "THEQOO":
+      return "더쿠";
     case "MANUAL":
     default:
       return "수동";
@@ -94,6 +109,15 @@ async function triggerMatch() {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ clearExisting: false, preserveManual: true }),
+  });
+  return res.json();
+}
+
+async function triggerCluster(action: "cluster" | "recalculate" = "cluster") {
+  const res = await fetch("/api/admin/trends/cluster", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action }),
   });
   return res.json();
 }
@@ -157,6 +181,21 @@ export default function AdminTrendsPage() {
       } else {
         alert(`삭제 실패: ${data.error}`);
       }
+    },
+  });
+
+  const clusterMutation = useMutation({
+    mutationFn: triggerCluster,
+    onSuccess: (data) => {
+      if (data.success) {
+        alert(`클러스터링 완료: ${data.message}`);
+        refetch();
+      } else {
+        alert(`클러스터링 실패: ${data.error}`);
+      }
+    },
+    onError: () => {
+      alert("클러스터링 중 오류가 발생했습니다.");
     },
   });
 
@@ -389,39 +428,103 @@ export default function AdminTrendsPage() {
           <CardTitle>수집 소스별 실행</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => collectMutation.mutate("NAVER_DATALAB")}
-              disabled={collectMutation.isPending}
-            >
-              Naver DataLab
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => collectMutation.mutate("GOOGLE_TRENDS")}
-              disabled={collectMutation.isPending}
-            >
-              Google Trends
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => collectMutation.mutate("DAUM")}
-              disabled={collectMutation.isPending}
-            >
-              다음
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => collectMutation.mutate("ZUM")}
-              disabled={collectMutation.isPending}
-            >
-              줌
-            </Button>
+          <div className="space-y-4">
+            {/* Search Engine Sources */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">검색 트렌드</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("NAVER_DATALAB")}
+                  disabled={collectMutation.isPending}
+                >
+                  Naver DataLab
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("GOOGLE_TRENDS")}
+                  disabled={collectMutation.isPending}
+                >
+                  Google Trends
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("DAUM")}
+                  disabled={collectMutation.isPending}
+                >
+                  다음
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("ZUM")}
+                  disabled={collectMutation.isPending}
+                >
+                  줌
+                </Button>
+              </div>
+            </div>
+
+            {/* Community Sources */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">커뮤니티 인기글</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("DCINSIDE")}
+                  disabled={collectMutation.isPending}
+                >
+                  DC인사이드
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("FMKOREA")}
+                  disabled={collectMutation.isPending}
+                >
+                  FM코리아
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("THEQOO")}
+                  disabled={collectMutation.isPending}
+                >
+                  더쿠
+                </Button>
+              </div>
+            </div>
+
+            {/* Clustering */}
+            <div>
+              <h4 className="text-sm font-medium text-muted-foreground mb-2">클러스터링</h4>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => clusterMutation.mutate("cluster")}
+                  disabled={clusterMutation.isPending}
+                >
+                  {clusterMutation.isPending ? "처리 중..." : "새 키워드 클러스터링"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (confirm("모든 클러스터를 재계산하시겠습니까? 기존 클러스터가 초기화됩니다.")) {
+                      clusterMutation.mutate("recalculate");
+                    }
+                  }}
+                  disabled={clusterMutation.isPending}
+                >
+                  전체 재클러스터링
+                </Button>
+              </div>
+            </div>
           </div>
         </CardContent>
       </Card>
