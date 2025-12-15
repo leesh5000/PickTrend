@@ -5,6 +5,7 @@ import prisma from "@/lib/prisma";
 import { collectAllNaverTrends, collectNaverTrendsForKeywords } from "@/lib/trends/naver-datalab";
 import { collectAllGoogleTrends, importGoogleTrendingKeywords } from "@/lib/trends/google-trends";
 import { collectAllDaumTrends } from "@/lib/trends/daum-crawler";
+import { collectAllZumTrends } from "@/lib/trends/zum-crawler";
 import { TrendSource } from "@prisma/client";
 
 interface CollectRequest {
@@ -32,6 +33,7 @@ export async function POST(request: NextRequest) {
       naver: null,
       google: null,
       daum: null,
+      zum: null,
     };
 
     const errors: string[] = [];
@@ -104,6 +106,23 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Collect from Zum
+    if (source === "ALL" || source === "ZUM") {
+      try {
+        const result = await collectAllZumTrends();
+        results.zum = {
+          jobId: result.jobId,
+          collected: result.collected,
+          imported: result.imported,
+          errors: result.errors,
+        };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : "Unknown error";
+        errors.push(`Zum: ${message}`);
+        results.zum = { error: message };
+      }
+    }
+
     // Log admin action
     await prisma.adminAction.create({
       data: {
@@ -123,10 +142,13 @@ export async function POST(request: NextRequest) {
     const totalCollected =
       (results.naver?.collected || 0) +
       (results.google?.collected || 0) +
-      (results.daum?.collected || 0);
+      (results.daum?.collected || 0) +
+      (results.zum?.collected || 0);
 
     const totalImported =
-      (results.google?.imported || 0) + (results.daum?.imported || 0);
+      (results.google?.imported || 0) +
+      (results.daum?.imported || 0) +
+      (results.zum?.imported || 0);
 
     return NextResponse.json({
       success: true,

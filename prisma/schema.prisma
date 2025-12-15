@@ -255,6 +255,7 @@ enum TrendSource {
   NAVER_DATALAB
   GOOGLE_TRENDS
   DAUM
+  ZUM
   MANUAL
 }
 

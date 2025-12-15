@@ -16,6 +16,7 @@ const SOURCE_OPTIONS = [
   { value: "NAVER_DATALAB", label: "Naver DataLab" },
   { value: "GOOGLE_TRENDS", label: "Google Trends" },
   { value: "DAUM", label: "다음" },
+  { value: "ZUM", label: "줌" },
 ] as const;
 
 const SORT_OPTIONS = [
@@ -35,6 +36,8 @@ function getSourceBadgeVariant(source: TrendSource) {
       return "secondary";
     case "DAUM":
       return "outline";
+    case "ZUM":
+      return "destructive";
     case "MANUAL":
     default:
       return "secondary";
@@ -49,6 +52,8 @@ function getSourceLabel(source: TrendSource) {
       return "Google";
     case "DAUM":
       return "다음";
+    case "ZUM":
+      return "줌";
     case "MANUAL":
     default:
       return "수동";
@@ -408,6 +413,14 @@ export default function AdminTrendsPage() {
               disabled={collectMutation.isPending}
             >
               다음
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => collectMutation.mutate("ZUM")}
+              disabled={collectMutation.isPending}
+            >
+              줌
             </Button>
           </div>
         </CardContent>
