@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ProductGrid } from "@/components/products/product-grid";
+import { VideoGrid } from "@/components/videos/video-grid";
 
 const TREND_SERVICES = [
   {
@@ -103,11 +104,32 @@ export default function Home() {
               apiUrl="/api/products/new?limit=20"
               queryKey="newProducts"
               itemsPerPage={5}
-              rotationInterval={5000}
+              rotationInterval={7000}
             />
             <p className="text-[11px] text-blue-500 mt-4 leading-relaxed">
               이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
             </p>
+          </div>
+        </section>
+
+        {/* 지금 뜨는 영상 */}
+        <section className="py-8 px-4">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">🎬 지금 뜨는 영상</h2>
+              <Link
+                href="/rankings"
+                className="text-sm text-muted-foreground hover:text-primary transition"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <VideoGrid
+              apiUrl="/api/videos/popular?limit=20"
+              queryKey="popularVideos"
+              itemsPerPage={5}
+              rotationInterval={6000}
+            />
           </div>
         </section>
 

@@ -79,6 +79,9 @@ npm run db:studio    # Open Prisma Studio GUI
 |-------|--------|---------|
 | `/api/rankings` | GET | Fetch rankings with pagination (period, category, sortBy filters) |
 | `/api/products/[id]` | GET | Fetch single product with videos and metrics |
+| `/api/products/popular` | GET | Fetch popular products by all-time click count (limit param) |
+| `/api/products/new` | GET | Fetch newest products by creation date (limit param) |
+| `/api/videos/popular` | GET | Fetch popular videos by view count (limit param) |
 | `/api/categories` | GET | Fetch active categories |
 | `/api/track/click` | POST | Track affiliate link clicks |
 | `/api/track/view` | POST | Track page views |
@@ -99,6 +102,18 @@ npm run db:studio    # Open Prisma Studio GUI
 | `/api/admin/analytics` | GET | Analytics data |
 | `/api/admin/opengraph` | GET | Fetch Open Graph metadata |
 | `/api/admin/rankings/[id]` | DELETE | Delete ranking period |
+
+### Homepage Grid Components
+
+- `src/components/products/product-grid.tsx` - Auto-rotating product grid with slide animation
+- `src/components/videos/video-grid.tsx` - Auto-rotating video grid with YouTube link handling
+
+Features:
+- Display 5 items per page (responsive: 2-5 columns based on viewport)
+- Auto-rotation with configurable interval (staggered: 5s, 7s, 6s to avoid sync)
+- Pause on hover, manual navigation buttons
+- CSS transform slide animation (translateX, 500ms duration)
+- Click tracking for products, YouTube link handling for videos
 
 ### UI & Theming
 
