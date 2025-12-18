@@ -212,7 +212,7 @@ export default function RankingsPage() {
     <div className="min-h-screen flex flex-col">
       <Header />
       <main className="flex-1 max-w-6xl mx-auto px-4 py-8 w-full">
-        <h1 className="text-2xl sm:text-3xl font-bold mb-6">트렌드 랭킹</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold mb-6">상품 랭킹</h1>
 
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mb-6">

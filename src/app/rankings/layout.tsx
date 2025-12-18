@@ -3,11 +3,11 @@ import { Metadata } from "next";
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://pickranky.com";
 
 export const metadata: Metadata = {
-  title: "트렌드 랭킹",
+  title: "상품 랭킹",
   description:
     "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위. 전자기기, 뷰티, 가전제품, 음식 카테고리별 인기 상품 랭킹을 확인하세요.",
   openGraph: {
-    title: "트렌드 랭킹 | PickRanky",
+    title: "상품 랭킹 | PickRanky",
     description:
       "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위. 지금 가장 핫한 상품을 확인하세요.",
     url: `${SITE_URL}/rankings`,
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "트렌드 랭킹 | PickRanky",
+    title: "상품 랭킹 | PickRanky",
     description:
       "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위. 지금 가장 핫한 상품을 확인하세요.",
   },
@@ -33,7 +33,7 @@ export default function RankingsLayout({
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ItemList",
-    name: "트렌드 상품 랭킹",
+    name: "상품 랭킹",
     description: "유튜브 리뷰 기반 실시간 쇼핑 상품 트렌드 순위",
     url: `${SITE_URL}/rankings`,
   };

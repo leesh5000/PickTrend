@@ -107,6 +107,53 @@ export async function classifyCategory(
   }
 }
 
+export async function summarizeFromMetadata(
+  title: string,
+  description: string,
+  options: SummarizeOptions = {}
+): Promise<string | null> {
+  const { maxLength = 200, language = "ko" } = options;
+
+  if (!title || title.length < 10) {
+    console.log("제목이 너무 짧아 요약을 생성할 수 없습니다.");
+    return null;
+  }
+
+  const inputText = description && description.length > 10
+    ? `제목: ${title}\n설명: ${description}`
+    : `제목: ${title}`;
+
+  try {
+    const openai = getOpenAI();
+    const response = await openai.chat.completions.create({
+      model: "gpt-3.5-turbo",
+      messages: [
+        {
+          role: "system",
+          content: `당신은 쇼핑 트렌드 뉴스 기사를 요약하는 전문가입니다.
+- 주어진 제목과 설명을 바탕으로 ${maxLength}자 이내의 요약을 작성하세요.
+- ${language === "ko" ? "한국어" : "영어"}로 작성하세요.
+- 객관적인 톤을 유지하세요.
+- 핵심 내용과 트렌드를 강조하세요.
+- 제품명, 브랜드명이 있다면 포함하세요.`,
+        },
+        {
+          role: "user",
+          content: `다음 기사 정보를 바탕으로 요약을 작성해주세요:\n\n${inputText}`,
+        },
+      ],
+      max_tokens: 300,
+      temperature: 0.3,
+    });
+
+    const summary = response.choices[0]?.message?.content?.trim();
+    return summary || null;
+  } catch (error) {
+    console.error("OpenAI 메타데이터 기반 요약 생성 오류:", error);
+    return null;
+  }
+}
+
 export async function extractKeywords(content: string): Promise<string[]> {
   const truncatedContent = content.length > 2000 ? content.slice(0, 2000) : content;
 

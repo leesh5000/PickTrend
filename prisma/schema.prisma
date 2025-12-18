@@ -260,6 +260,7 @@ enum ArticleSource {
 model Article {
   id           String        @id @default(cuid())
   title        String
+  description  String?       @db.Text
   summary      String?       @db.Text
   originalUrl  String        @unique @map("original_url")
   thumbnailUrl String?       @map("thumbnail_url")

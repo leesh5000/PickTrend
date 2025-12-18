@@ -1,10 +1,9 @@
-import { PrismaClient, ArticleSource } from "@prisma/client";
+import { ArticleSource } from "@prisma/client";
 import { fetchAllNaverRss, type ParsedArticle as NaverArticle } from "./naver-rss";
 import { fetchAllGoogleNews, type ParsedArticle as GoogleArticle } from "./google-news";
 import { fetchArticleContentWithRetry } from "./content-fetcher";
-import { summarizeArticle } from "@/lib/openai/client";
-
-const prisma = new PrismaClient();
+import { summarizeArticle, summarizeFromMetadata } from "@/lib/openai/client";
+import prisma from "@/lib/prisma";
 
 type ParsedArticle = NaverArticle | GoogleArticle;
 
@@ -58,6 +57,7 @@ export async function collectArticles(): Promise<CollectionResult> {
         const newArticle = await prisma.article.create({
           data: {
             title: article.title,
+            description: article.description,
             originalUrl: article.originalUrl,
             source: article.source as ArticleSource,
             category: article.category,
@@ -70,7 +70,12 @@ export async function collectArticles(): Promise<CollectionResult> {
 
         // 4. 기사 본문 크롤링 및 요약 생성 (동기 처리)
         try {
-          const success = await processArticleSummary(newArticle.id, article.originalUrl);
+          const success = await processArticleSummary(
+            newArticle.id,
+            article.originalUrl,
+            article.title,
+            article.description
+          );
           if (success) result.summarized++;
         } catch (error) {
           result.errors.push(`요약 생성 실패 (${newArticle.id}): ${error}`);
@@ -96,19 +101,33 @@ export async function collectArticles(): Promise<CollectionResult> {
   }
 }
 
-async function processArticleSummary(articleId: string, url: string): Promise<boolean> {
+async function processArticleSummary(
+  articleId: string,
+  url: string,
+  title: string,
+  description: string
+): Promise<boolean> {
   try {
-    // 본문 크롤링
+    // 1. 먼저 본문 크롤링 시도
     const content = await fetchArticleContentWithRetry(url);
-    if (!content || !content.content) {
-      console.log(`본문 크롤링 실패: ${url}`);
-      return false;
+
+    let summary: string | null = null;
+    let thumbnailUrl: string | null = null;
+
+    if (content && content.content) {
+      // 본문 크롤링 성공 시 전체 내용으로 요약 생성
+      summary = await summarizeArticle(content.content);
+      thumbnailUrl = content.thumbnailUrl || null;
     }
 
-    // AI 요약 생성
-    const summary = await summarizeArticle(content.content);
+    // 2. 본문 크롤링 실패 또는 요약 생성 실패 시 제목/설명으로 요약 생성
     if (!summary) {
-      console.log(`요약 생성 실패: ${url}`);
+      console.log(`본문 크롤링 실패, 메타데이터로 요약 생성 시도: ${url}`);
+      summary = await summarizeFromMetadata(title, description);
+    }
+
+    if (!summary) {
+      console.log(`요약 생성 최종 실패: ${url}`);
       return false;
     }
 
@@ -117,7 +136,7 @@ async function processArticleSummary(articleId: string, url: string): Promise<bo
       where: { id: articleId },
       data: {
         summary,
-        thumbnailUrl: content.thumbnailUrl,
+        ...(thumbnailUrl && { thumbnailUrl }),
       },
     });
 
@@ -194,18 +213,25 @@ export async function summarizeUnsummarizedArticles(): Promise<number> {
       },
       select: {
         id: true,
+        title: true,
+        description: true,
         originalUrl: true,
       },
-      take: 10, // 한 번에 10개씩 처리
+      take: 50, // 한 번에 50개씩 처리
     });
 
     for (const article of articles) {
-      const success = await processArticleSummary(article.id, article.originalUrl);
+      const success = await processArticleSummary(
+        article.id,
+        article.originalUrl,
+        article.title,
+        article.description || ""
+      );
       if (success) {
         summarizedCount++;
       }
-      // Rate limiting
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // Rate limiting - OpenAI API 호출 간격
+      await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
     return summarizedCount;
