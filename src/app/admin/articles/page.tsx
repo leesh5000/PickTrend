@@ -1,15 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useCategories } from "@/hooks/useCategories";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { ko } from "date-fns/locale";
+import { ArticleSource, JobStatus } from "@prisma/client";
 
 type SortOption = "publishedAtDesc" | "publishedAtAsc" | "createdAtDesc" | "createdAtAsc" | "title" | "titleDesc";
 type SourceFilter = "NAVER" | "GOOGLE" | undefined;
@@ -45,6 +46,34 @@ interface ArticlesResponse {
   };
 }
 
+interface CollectionJob {
+  id: string;
+  source: ArticleSource;
+  status: JobStatus;
+  startedAt: string | null;
+  completedAt: string | null;
+  totalFound: number;
+  newArticles: number;
+  duplicates: number;
+  summarized: number;
+  linkedProducts: number;
+  errorLog: string | null;
+  createdAt: string;
+}
+
+interface CollectionJobsResponse {
+  success: boolean;
+  data: {
+    jobs: CollectionJob[];
+    pagination: {
+      page: number;
+      limit: number;
+      total: number;
+      totalPages: number;
+    };
+  };
+}
+
 async function fetchArticles(params: {
   page: number;
   search: string;
@@ -67,18 +96,100 @@ async function fetchArticles(params: {
   return res.json();
 }
 
+async function fetchCollectionJobs(page: number): Promise<CollectionJobsResponse> {
+  const res = await fetch(`/api/admin/articles/collect?page=${page}&limit=10`);
+  if (!res.ok) throw new Error("Failed to fetch collection jobs");
+  return res.json();
+}
+
+async function triggerCollection(source: ArticleSource | "ALL") {
+  const res = await fetch("/api/admin/articles/collect", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ source }),
+  });
+  return res.json();
+}
+
+function getStatusBadgeVariant(status: JobStatus): "default" | "secondary" | "destructive" | "outline" | "success" {
+  switch (status) {
+    case "COMPLETED":
+      return "success";
+    case "RUNNING":
+      return "default";
+    case "FAILED":
+      return "destructive";
+    case "PENDING":
+    default:
+      return "secondary";
+  }
+}
+
+function getStatusLabel(status: JobStatus): string {
+  switch (status) {
+    case "COMPLETED":
+      return "완료";
+    case "RUNNING":
+      return "실행 중";
+    case "FAILED":
+      return "실패";
+    case "PENDING":
+    default:
+      return "대기";
+  }
+}
+
+function getSourceLabel(source: ArticleSource): string {
+  switch (source) {
+    case "NAVER":
+      return "네이버";
+    case "GOOGLE":
+      return "구글";
+    default:
+      return source;
+  }
+}
+
 export default function AdminArticlesPage() {
+  const queryClient = useQueryClient();
   const [page, setPage] = useState(1);
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState<string | undefined>();
   const [source, setSource] = useState<SourceFilter>();
   const [sortBy, setSortBy] = useState<SortOption>("publishedAtDesc");
+  const [jobsPage, setJobsPage] = useState(1);
+  const [showJobs, setShowJobs] = useState(false);
+  const [selectedJobError, setSelectedJobError] = useState<string | null>(null);
 
   const { data: categories = [] } = useCategories();
 
-  const { data, isLoading, error } = useQuery({
+  const { data, isLoading, error, refetch } = useQuery({
     queryKey: ["admin-articles", page, search, category, source, sortBy],
     queryFn: () => fetchArticles({ page, search, category, source, sortBy }),
+  });
+
+  const { data: jobsData, isLoading: jobsLoading, refetch: refetchJobs } = useQuery({
+    queryKey: ["admin-article-jobs", jobsPage],
+    queryFn: () => fetchCollectionJobs(jobsPage),
+    enabled: showJobs,
+  });
+
+  const collectMutation = useMutation({
+    mutationFn: triggerCollection,
+    onSuccess: (data) => {
+      if (data.success) {
+        alert(`수집 완료: ${data.message}`);
+        refetch();
+        refetchJobs();
+      } else {
+        alert(`수집 실패: ${data.error}`);
+        refetchJobs();
+      }
+    },
+    onError: () => {
+      alert("수집 중 오류가 발생했습니다.");
+      refetchJobs();
+    },
   });
 
   const handleSearchChange = (value: string) => {
@@ -100,10 +211,191 @@ export default function AdminArticlesPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <h1 className="text-2xl font-bold">기사 관리</h1>
-        <Link href="/admin/articles/new">
-          <Button>새 기사 등록</Button>
-        </Link>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setShowJobs(!showJobs);
+              if (!showJobs) refetchJobs();
+            }}
+          >
+            {showJobs ? "수집 히스토리 닫기" : "수집 히스토리"}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => collectMutation.mutate("ALL")}
+            disabled={collectMutation.isPending}
+          >
+            {collectMutation.isPending ? "수집 중..." : "기사 수집"}
+          </Button>
+          <Link href="/admin/articles/new">
+            <Button>새 기사 등록</Button>
+          </Link>
+        </div>
       </div>
+
+      {/* 수집 히스토리 */}
+      {showJobs && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>수집 히스토리</CardTitle>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("NAVER")}
+                  disabled={collectMutation.isPending}
+                >
+                  네이버만 수집
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => collectMutation.mutate("GOOGLE")}
+                  disabled={collectMutation.isPending}
+                >
+                  구글만 수집
+                </Button>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {jobsLoading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
+              </div>
+            ) : jobsData?.data.jobs.length === 0 ? (
+              <p className="text-center text-muted-foreground py-8">
+                수집 히스토리가 없습니다.
+              </p>
+            ) : (
+              <>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b text-left">
+                        <th className="py-3 px-2 font-medium">소스</th>
+                        <th className="py-3 px-2 font-medium">상태</th>
+                        <th className="py-3 px-2 font-medium text-center">발견</th>
+                        <th className="py-3 px-2 font-medium text-center">신규</th>
+                        <th className="py-3 px-2 font-medium text-center">중복</th>
+                        <th className="py-3 px-2 font-medium text-center">요약</th>
+                        <th className="py-3 px-2 font-medium">시작</th>
+                        <th className="py-3 px-2 font-medium">완료</th>
+                        <th className="py-3 px-2"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {jobsData?.data.jobs.map((job) => (
+                        <tr key={job.id} className="border-b hover:bg-muted/50">
+                          <td className="py-3 px-2">
+                            <Badge variant={job.source === "NAVER" ? "default" : "secondary"}>
+                              {getSourceLabel(job.source)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-2">
+                            <Badge variant={getStatusBadgeVariant(job.status)}>
+                              {getStatusLabel(job.status)}
+                            </Badge>
+                          </td>
+                          <td className="py-3 px-2 text-center">{job.totalFound}</td>
+                          <td className="py-3 px-2 text-center text-green-600 font-medium">
+                            {job.newArticles}
+                          </td>
+                          <td className="py-3 px-2 text-center text-muted-foreground">
+                            {job.duplicates}
+                          </td>
+                          <td className="py-3 px-2 text-center">{job.summarized}</td>
+                          <td className="py-3 px-2 text-sm text-muted-foreground">
+                            {job.startedAt
+                              ? format(new Date(job.startedAt), "MM/dd HH:mm", { locale: ko })
+                              : "-"}
+                          </td>
+                          <td className="py-3 px-2 text-sm text-muted-foreground">
+                            {job.completedAt
+                              ? format(new Date(job.completedAt), "MM/dd HH:mm", { locale: ko })
+                              : "-"}
+                          </td>
+                          <td className="py-3 px-2">
+                            <div className="flex gap-2 justify-end">
+                              {job.errorLog && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setSelectedJobError(job.errorLog)}
+                                >
+                                  오류 보기
+                                </Button>
+                              )}
+                              {job.status === "FAILED" && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => collectMutation.mutate(job.source)}
+                                  disabled={collectMutation.isPending}
+                                >
+                                  재시도
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* 페이지네이션 */}
+                {jobsData && jobsData.data.pagination.totalPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 mt-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setJobsPage(jobsPage - 1)}
+                      disabled={jobsPage === 1}
+                    >
+                      이전
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      {jobsPage} / {jobsData.data.pagination.totalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setJobsPage(jobsPage + 1)}
+                      disabled={jobsPage === jobsData.data.pagination.totalPages}
+                    >
+                      다음
+                    </Button>
+                  </div>
+                )}
+              </>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
+      {/* 오류 로그 모달 */}
+      {selectedJobError && (
+        <div
+          className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+          onClick={() => setSelectedJobError(null)}
+        >
+          <div
+            className="bg-background rounded-lg p-6 max-w-2xl max-h-[80vh] overflow-auto m-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg font-medium mb-4">오류 로그</h3>
+            <pre className="bg-muted p-4 rounded text-sm whitespace-pre-wrap break-words">
+              {selectedJobError}
+            </pre>
+            <div className="flex justify-end mt-4">
+              <Button onClick={() => setSelectedJobError(null)}>닫기</Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <Card>
         <CardHeader>

@@ -356,6 +356,25 @@ model ArticleShare {
   @@map("article_shares")
 }
 
+model ArticleCollectionJob {
+  id             String        @id @default(cuid())
+  source         ArticleSource
+  status         JobStatus     @default(PENDING)
+  startedAt      DateTime?     @map("started_at")
+  completedAt    DateTime?     @map("completed_at")
+  totalFound     Int           @default(0) @map("total_found")
+  newArticles    Int           @default(0) @map("new_articles")
+  duplicates     Int           @default(0)
+  summarized     Int           @default(0)
+  linkedProducts Int           @default(0) @map("linked_products")
+  errorLog       String?       @map("error_log") @db.Text
+  createdAt      DateTime      @default(now()) @map("created_at")
+
+  @@index([source, status])
+  @@index([createdAt])
+  @@map("article_collection_jobs")
+}
+
 // =====================
 // Trend Models
 // =====================

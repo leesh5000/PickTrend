@@ -1,4 +1,4 @@
-import { ArticleSource } from "@prisma/client";
+import { ArticleSource, JobStatus } from "@prisma/client";
 import { fetchAllNaverRss, type ParsedArticle as NaverArticle } from "./naver-rss";
 import { fetchAllGoogleNews, type ParsedArticle as GoogleArticle } from "./google-news";
 import { fetchArticleContentWithRetry } from "./content-fetcher";
@@ -14,9 +14,17 @@ export interface CollectionResult {
   summarized: number;
   linkedProducts: number;
   errors: string[];
+  jobId?: string;
 }
 
-export async function collectArticles(): Promise<CollectionResult> {
+export interface CollectionOptions {
+  source?: ArticleSource | "ALL";
+  createJob?: boolean;
+}
+
+export async function collectArticles(options?: CollectionOptions): Promise<CollectionResult> {
+  const { source = "ALL", createJob = false } = options || {};
+
   const result: CollectionResult = {
     total: 0,
     newArticles: 0,
@@ -26,22 +34,68 @@ export async function collectArticles(): Promise<CollectionResult> {
     errors: [],
   };
 
+  // Job 생성 (소스별로 생성)
+  const jobs: { source: ArticleSource; jobId: string }[] = [];
+
+  if (createJob) {
+    const sourcesToTrack = source === "ALL"
+      ? [ArticleSource.NAVER, ArticleSource.GOOGLE]
+      : [source as ArticleSource];
+
+    for (const src of sourcesToTrack) {
+      const job = await prisma.articleCollectionJob.create({
+        data: {
+          source: src,
+          status: JobStatus.RUNNING,
+          startedAt: new Date(),
+        },
+      });
+      jobs.push({ source: src, jobId: job.id });
+    }
+  }
+
   try {
-    // 1. 네이버 RSS에서 기사 수집
-    console.log("네이버 RSS 수집 시작...");
-    const naverArticles = await fetchAllNaverRss();
-    console.log(`네이버 기사 ${naverArticles.length}개 수집`);
+    let allArticles: ParsedArticle[] = [];
+    const sourceResults: Map<ArticleSource, CollectionResult> = new Map();
 
-    // 2. Google News에서 기사 수집
-    console.log("Google News 수집 시작...");
-    const googleArticles = await fetchAllGoogleNews();
-    console.log(`Google 기사 ${googleArticles.length}개 수집`);
+    // 소스별 수집
+    if (source === "ALL" || source === ArticleSource.NAVER) {
+      console.log("네이버 RSS 수집 시작...");
+      const naverArticles = await fetchAllNaverRss();
+      console.log(`네이버 기사 ${naverArticles.length}개 수집`);
+      allArticles = [...allArticles, ...naverArticles];
+      sourceResults.set(ArticleSource.NAVER, {
+        total: naverArticles.length,
+        newArticles: 0,
+        duplicates: 0,
+        summarized: 0,
+        linkedProducts: 0,
+        errors: [],
+      });
+    }
 
-    const allArticles = [...naverArticles, ...googleArticles];
+    if (source === "ALL" || source === ArticleSource.GOOGLE) {
+      console.log("Google News 수집 시작...");
+      const googleArticles = await fetchAllGoogleNews();
+      console.log(`Google 기사 ${googleArticles.length}개 수집`);
+      allArticles = [...allArticles, ...googleArticles];
+      sourceResults.set(ArticleSource.GOOGLE, {
+        total: googleArticles.length,
+        newArticles: 0,
+        duplicates: 0,
+        summarized: 0,
+        linkedProducts: 0,
+        errors: [],
+      });
+    }
+
     result.total = allArticles.length;
 
     // 3. 중복 체크 및 저장
     for (const article of allArticles) {
+      const articleSource = article.source as ArticleSource;
+      const srcResult = sourceResults.get(articleSource);
+
       try {
         // URL 기반 중복 체크
         const existing = await prisma.article.findUnique({
@@ -50,6 +104,7 @@ export async function collectArticles(): Promise<CollectionResult> {
 
         if (existing) {
           result.duplicates++;
+          if (srcResult) srcResult.duplicates++;
           continue;
         }
 
@@ -59,7 +114,7 @@ export async function collectArticles(): Promise<CollectionResult> {
             title: article.title,
             description: article.description,
             originalUrl: article.originalUrl,
-            source: article.source as ArticleSource,
+            source: articleSource,
             category: article.category,
             publishedAt: article.publishedAt,
             collectedAt: new Date(),
@@ -67,6 +122,7 @@ export async function collectArticles(): Promise<CollectionResult> {
         });
 
         result.newArticles++;
+        if (srcResult) srcResult.newArticles++;
 
         // 4. 기사 본문 크롤링 및 요약 생성 (동기 처리)
         try {
@@ -76,14 +132,21 @@ export async function collectArticles(): Promise<CollectionResult> {
             article.title,
             article.description
           );
-          if (success) result.summarized++;
+          if (success) {
+            result.summarized++;
+            if (srcResult) srcResult.summarized++;
+          }
         } catch (error) {
-          result.errors.push(`요약 생성 실패 (${newArticle.id}): ${error}`);
+          const errMsg = `요약 생성 실패 (${newArticle.id}): ${error}`;
+          result.errors.push(errMsg);
+          if (srcResult) srcResult.errors.push(errMsg);
         }
 
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
-        result.errors.push(`기사 저장 실패: ${message}`);
+        const errMsg = `기사 저장 실패: ${message}`;
+        result.errors.push(errMsg);
+        if (srcResult) srcResult.errors.push(errMsg);
       }
     }
 
@@ -91,12 +154,47 @@ export async function collectArticles(): Promise<CollectionResult> {
     const linkedCount = await linkArticlesToProducts();
     result.linkedProducts = linkedCount;
 
+    // Job 업데이트 (성공)
+    for (const job of jobs) {
+      const srcResult = sourceResults.get(job.source);
+      await prisma.articleCollectionJob.update({
+        where: { id: job.jobId },
+        data: {
+          status: JobStatus.COMPLETED,
+          completedAt: new Date(),
+          totalFound: srcResult?.total || 0,
+          newArticles: srcResult?.newArticles || 0,
+          duplicates: srcResult?.duplicates || 0,
+          summarized: srcResult?.summarized || 0,
+          linkedProducts: linkedCount,
+          errorLog: srcResult?.errors.length ? srcResult.errors.join("\n") : null,
+        },
+      });
+    }
+
+    if (jobs.length > 0) {
+      result.jobId = jobs[0].jobId;
+    }
+
     console.log("기사 수집 완료:", result);
     return result;
 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     result.errors.push(`수집 프로세스 오류: ${message}`);
+
+    // Job 업데이트 (실패)
+    for (const job of jobs) {
+      await prisma.articleCollectionJob.update({
+        where: { id: job.jobId },
+        data: {
+          status: JobStatus.FAILED,
+          completedAt: new Date(),
+          errorLog: message,
+        },
+      });
+    }
+
     return result;
   }
 }
