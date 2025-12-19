@@ -54,6 +54,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const source = body.source as ArticleSource | "ALL" | undefined;
+    const limit = body.limit as number | undefined;
+    const async = body.async as boolean | undefined;
 
     // 이미 실행 중인 작업이 있는지 확인
     const runningJobs = await prisma.articleCollectionJob.findMany({
@@ -75,10 +77,81 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 수집 실행 (Job 생성 포함)
+    // 비동기 모드: Job 생성 후 즉시 응답, 백그라운드에서 수집
+    if (async) {
+      const sourcesToTrack = (source === "ALL" || !source)
+        ? [ArticleSource.NAVER, ArticleSource.GOOGLE]
+        : [source as ArticleSource];
+
+      // Job 먼저 생성
+      const jobs = await Promise.all(
+        sourcesToTrack.map((src) =>
+          prisma.articleCollectionJob.create({
+            data: {
+              source: src,
+              status: "RUNNING",
+              startedAt: new Date(),
+            },
+          })
+        )
+      );
+
+      const jobId = jobs[0].id;
+
+      // 백그라운드에서 수집 실행 (응답 후에도 계속 실행)
+      collectArticles({
+        source: source || "ALL",
+        createJob: false, // 이미 생성했으므로
+        limit: limit || 20,
+      }).then(async (result) => {
+        // 완료 시 Job 업데이트
+        await Promise.all(
+          jobs.map((job) =>
+            prisma.articleCollectionJob.update({
+              where: { id: job.id },
+              data: {
+                status: result.errors.length > 0 && result.newArticles === 0 ? "FAILED" : "COMPLETED",
+                completedAt: new Date(),
+                totalFound: result.total,
+                newArticles: result.newArticles,
+                duplicates: result.duplicates,
+                summarized: result.summarized,
+                linkedProducts: result.linkedProducts,
+                errorLog: result.errors.length ? result.errors.join("\n") : null,
+              },
+            })
+          )
+        );
+      }).catch(async (error) => {
+        // 실패 시 Job 업데이트
+        const errorMsg = error instanceof Error ? error.message : String(error);
+        await Promise.all(
+          jobs.map((job) =>
+            prisma.articleCollectionJob.update({
+              where: { id: job.id },
+              data: {
+                status: "FAILED",
+                completedAt: new Date(),
+                errorLog: errorMsg,
+              },
+            })
+          )
+        );
+      });
+
+      // 즉시 응답
+      return NextResponse.json({
+        success: true,
+        message: "수집이 시작되었습니다.",
+        data: { jobId },
+      });
+    }
+
+    // 동기 모드: 수집 완료까지 대기
     const result = await collectArticles({
       source: source || "ALL",
       createJob: true,
+      limit: limit || 20,
     });
 
     const statusCode = result.errors.length > 0 && result.newArticles === 0 ? 500 : 200;

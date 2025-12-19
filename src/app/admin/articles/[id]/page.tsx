@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -91,8 +91,8 @@ async function fetchProducts(category?: string): Promise<{ data: { products: Pro
   return res.json();
 }
 
-export default function EditArticlePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function EditArticlePage({ params }: { params: { id: string } }) {
+  const { id } = params;
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: categories = [] } = useCategories();

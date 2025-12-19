@@ -11,6 +11,7 @@ import { useCategories } from "@/hooks/useCategories";
 import { formatDistanceToNow, format } from "date-fns";
 import { ko } from "date-fns/locale";
 import { ArticleSource, JobStatus } from "@prisma/client";
+import { useArticleCollectionStore } from "@/stores/article-collection-store";
 
 type SortOption = "publishedAtDesc" | "publishedAtAsc" | "createdAtDesc" | "createdAtAsc" | "title" | "titleDesc";
 type SourceFilter = "NAVER" | "GOOGLE" | undefined;
@@ -106,7 +107,7 @@ async function triggerCollection(source: ArticleSource | "ALL") {
   const res = await fetch("/api/admin/articles/collect", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ source }),
+    body: JSON.stringify({ source, async: true }),
   });
   return res.json();
 }
@@ -174,14 +175,16 @@ export default function AdminArticlesPage() {
     enabled: showJobs,
   });
 
+  const { startCollection, status: collectionStatus } = useArticleCollectionStore();
+
   const collectMutation = useMutation({
     mutationFn: triggerCollection,
     onSuccess: (data) => {
-      if (data.success) {
-        alert(`수집 완료: ${data.message}`);
-        refetch();
+      if (data.success && data.data?.jobId) {
+        // 비동기 모드: store에 jobId 저장하고 polling 시작
+        startCollection(data.data.jobId);
         refetchJobs();
-      } else {
+      } else if (!data.success) {
         alert(`수집 실패: ${data.error}`);
         refetchJobs();
       }
@@ -224,9 +227,9 @@ export default function AdminArticlesPage() {
           <Button
             variant="outline"
             onClick={() => collectMutation.mutate("ALL")}
-            disabled={collectMutation.isPending}
+            disabled={collectMutation.isPending || collectionStatus === "collecting"}
           >
-            {collectMutation.isPending ? "수집 중..." : "기사 수집"}
+            {collectMutation.isPending ? "시작 중..." : collectionStatus === "collecting" ? "수집 중..." : "기사 수집"}
           </Button>
           <Link href="/admin/articles/new">
             <Button>새 기사 등록</Button>
@@ -245,7 +248,7 @@ export default function AdminArticlesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => collectMutation.mutate("NAVER")}
-                  disabled={collectMutation.isPending}
+                  disabled={collectMutation.isPending || collectionStatus === "collecting"}
                 >
                   네이버만 수집
                 </Button>
@@ -253,7 +256,7 @@ export default function AdminArticlesPage() {
                   variant="outline"
                   size="sm"
                   onClick={() => collectMutation.mutate("GOOGLE")}
-                  disabled={collectMutation.isPending}
+                  disabled={collectMutation.isPending || collectionStatus === "collecting"}
                 >
                   구글만 수집
                 </Button>
@@ -333,7 +336,7 @@ export default function AdminArticlesPage() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => collectMutation.mutate(job.source)}
-                                  disabled={collectMutation.isPending}
+                                  disabled={collectMutation.isPending || collectionStatus === "collecting"}
                                 >
                                   재시도
                                 </Button>
@@ -502,24 +505,15 @@ export default function AdminArticlesPage() {
                 {data?.data.articles.map((article) => (
                   <tr key={article.id} className="border-b hover:bg-muted/50">
                     <td className="py-3 px-2">
-                      <div className="flex items-center gap-3">
-                        {article.thumbnailUrl && (
-                          <img
-                            src={article.thumbnailUrl}
-                            alt=""
-                            className="w-12 h-12 object-cover rounded"
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <div className="font-medium truncate max-w-xs">
-                            {article.title}
-                          </div>
-                          {article.summary && (
-                            <div className="text-sm text-muted-foreground truncate max-w-xs">
-                              {article.summary}
-                            </div>
-                          )}
+                      <div className="min-w-0">
+                        <div className="font-medium truncate max-w-xs">
+                          {article.title}
                         </div>
+                        {article.summary && (
+                          <div className="text-sm text-muted-foreground truncate max-w-xs">
+                            {article.summary}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="py-3 px-2">

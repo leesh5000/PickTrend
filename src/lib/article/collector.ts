@@ -20,10 +20,11 @@ export interface CollectionResult {
 export interface CollectionOptions {
   source?: ArticleSource | "ALL";
   createJob?: boolean;
+  limit?: number; // 수집할 최대 기사 수
 }
 
 export async function collectArticles(options?: CollectionOptions): Promise<CollectionResult> {
-  const { source = "ALL", createJob = false } = options || {};
+  const { source = "ALL", createJob = false, limit = 20 } = options || {};
 
   const result: CollectionResult = {
     total: 0,
@@ -89,6 +90,12 @@ export async function collectArticles(options?: CollectionOptions): Promise<Coll
       });
     }
 
+    // 최대 수집 개수 제한
+    if (limit > 0 && allArticles.length > limit) {
+      console.log(`기사 수집 제한: ${allArticles.length}개 → ${limit}개`);
+      allArticles = allArticles.slice(0, limit);
+    }
+
     result.total = allArticles.length;
 
     // 3. 중복 체크 및 저장
@@ -97,6 +104,16 @@ export async function collectArticles(options?: CollectionOptions): Promise<Coll
       const srcResult = sourceResults.get(articleSource);
 
       try {
+        // 발행일이 24시간 이내인지 확인
+        const now = new Date();
+        const publishedAt = new Date(article.publishedAt);
+        const hoursDiff = (now.getTime() - publishedAt.getTime()) / (1000 * 60 * 60);
+
+        if (hoursDiff > 24) {
+          // 24시간 이전 기사는 스킵
+          continue;
+        }
+
         // URL 기반 중복 체크
         const existing = await prisma.article.findUnique({
           where: { originalUrl: article.originalUrl },
@@ -210,12 +227,10 @@ async function processArticleSummary(
     const content = await fetchArticleContentWithRetry(url);
 
     let summary: string | null = null;
-    let thumbnailUrl: string | null = null;
 
     if (content && content.content) {
       // 본문 크롤링 성공 시 전체 내용으로 요약 생성
       summary = await summarizeArticle(content.content);
-      thumbnailUrl = content.thumbnailUrl || null;
     }
 
     // 2. 본문 크롤링 실패 또는 요약 생성 실패 시 제목/설명으로 요약 생성
@@ -234,7 +249,6 @@ async function processArticleSummary(
       where: { id: articleId },
       data: {
         summary,
-        ...(thumbnailUrl && { thumbnailUrl }),
       },
     });
 

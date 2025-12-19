@@ -3,6 +3,7 @@ import { Header } from "@/components/layout/header";
 import { Footer } from "@/components/layout/footer";
 import { ProductGrid } from "@/components/products/product-grid";
 import { VideoGrid } from "@/components/videos/video-grid";
+import { NewsGrid } from "@/components/news/news-grid";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://pickranky.com";
 
@@ -18,8 +19,8 @@ const TREND_SERVICES = [
     name: "기사 트렌드",
     description: "화제의 뉴스와 핫한 기사",
     icon: "📰",
-    href: "#",
-    active: false,
+    href: "/news",
+    active: true,
   },
   {
     name: "커뮤니티 트렌드",
@@ -162,6 +163,27 @@ export default function Home() {
               queryKey="popularVideos"
               itemsPerPage={5}
               rotationInterval={6000}
+            />
+          </div>
+        </section>
+
+        {/* 트렌딩 뉴스 */}
+        <section className="py-8 px-4 bg-muted/30">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">📰 트렌딩 뉴스</h2>
+              <Link
+                href="/news"
+                className="text-sm text-muted-foreground hover:text-primary transition"
+              >
+                전체보기 →
+              </Link>
+            </div>
+            <NewsGrid
+              apiUrl="/api/news?limit=20&period=daily"
+              queryKey="trendingNews"
+              itemsPerPage={4}
+              rotationInterval={7000}
             />
           </div>
         </section>

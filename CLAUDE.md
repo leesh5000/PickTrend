@@ -137,10 +137,7 @@ AI-summarized news article collection and ranking system:
 - `GEMINI_API_KEY` - Google Gemini API key for summarization
 - `CRON_SECRET` - Vercel Cron authentication
 
-**Known Issues:**
-- Google News RSS URLs are JavaScript redirects; server-side crawling often fails
-- When content crawling fails, `summarizeFromMetadata()` generates summary from title+description instead
-- Naver RSS works better but may have DNS issues in local environment
+**Known Issues:** See Troubleshooting section for Google News RSS and Naver RSS issues.
 
 ### Score Algorithm (100 Points Max)
 
@@ -171,76 +168,13 @@ AI-summarized news article collection and ranking system:
 - Previous period's ranks are compared for rank change display (UP/DOWN/NEW/SAME)
 - Admin triggers ranking generation via `/api/admin/trends/rankings`
 
-### Public APIs
+### API Structure
 
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/rankings` | GET | Fetch rankings with pagination (period, category, sortBy filters) |
-| `/api/products/[id]` | GET | Fetch single product with videos and metrics |
-| `/api/products/popular` | GET | Fetch popular products by all-time click count (limit param) |
-| `/api/products/new` | GET | Fetch newest products by creation date (limit param) |
-| `/api/videos/popular` | GET | Fetch popular videos by view count (limit param) |
-| `/api/categories` | GET | Fetch active categories |
-| `/api/track/click` | POST | Track affiliate link clicks |
-| `/api/track/view` | POST | Track page views |
+- `/api/*` - Public APIs (rankings, products, categories, news, trends, tracking)
+- `/api/admin/*` - Admin APIs (인증 필요, middleware에서 보호)
+- `/api/cron/*` - Vercel Cron jobs (CRON_SECRET 인증)
 
-### Admin APIs
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/admin/youtube/search` | POST | Search YouTube videos |
-| `/api/admin/products` | GET | List products with pagination |
-| `/api/admin/products` | POST | Create product with videos |
-| `/api/admin/products/[id]` | GET/PATCH/DELETE | Product CRUD |
-| `/api/admin/videos` | GET/POST | Video management |
-| `/api/admin/videos/[id]` | GET/PATCH/DELETE | Video CRUD |
-| `/api/admin/categories` | GET/POST | Category management |
-| `/api/admin/categories/[id]` | GET/PATCH/DELETE | Category CRUD |
-| `/api/admin/dashboard` | GET | Dashboard stats |
-| `/api/admin/analytics` | GET | Analytics data |
-| `/api/admin/opengraph` | GET | Fetch Open Graph metadata |
-| `/api/admin/rankings/[id]` | DELETE | Delete ranking period |
-| `/api/admin/trends` | GET/POST | Trend keyword management |
-| `/api/admin/trends/[id]` | GET/PATCH/DELETE | Trend keyword CRUD |
-| `/api/admin/trends/collect` | POST/GET | Trigger/view trend data collection |
-| `/api/admin/trends/match` | POST | Match keywords to products |
-| `/api/admin/trends/rankings` | POST/GET | Generate rankings / List ranking periods |
-| `/api/admin/trends/cluster` | POST/GET | Cluster keywords by similarity / List clusters |
-| `/api/admin/articles` | GET/POST | Article list / Create article |
-| `/api/admin/articles/[id]` | GET/PATCH/DELETE | Article CRUD |
-| `/api/admin/articles/[id]/products` | GET/POST/DELETE | Article-product associations |
-| `/api/admin/articles/summarize` | POST | Fetch URL and generate AI summary |
-| `/api/admin/articles/batch-summarize` | GET/POST | Get summary stats / Batch generate summaries |
-
-### Trend APIs (Public)
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/trends` | GET | List trend keywords with filters |
-| `/api/trends/[id]` | GET | Get trend keyword with matched products |
-| `/api/trends/popular` | GET | Get popular trending keywords |
-| `/api/trends/method` | GET | Get ranking calculation method description |
-
-### Article APIs (Public)
-
-| Route | Method | Purpose |
-|-------|--------|---------|
-| `/api/news` | GET | List article rankings (period, category, source filters) |
-| `/api/news/[id]` | GET | Get article detail with related products |
-| `/api/track/article-view` | POST | Track article view |
-| `/api/track/article-share` | POST | Track article share |
-
-### Homepage Grid Components
-
-- `src/components/products/product-grid.tsx` - Auto-rotating product grid with slide animation
-- `src/components/videos/video-grid.tsx` - Auto-rotating video grid with YouTube link handling
-
-Features:
-- Display 5 items per page (responsive: 2-5 columns based on viewport)
-- Auto-rotation with configurable interval (staggered: 5s, 7s, 6s to avoid sync)
-- Pause on hover, manual navigation buttons
-- CSS transform slide animation (translateX, 500ms duration)
-- Click tracking for products, YouTube link handling for videos
+API 엔드포인트 상세는 `src/app/api/` 디렉토리 구조 참고.
 
 ### SEO Implementation
 
@@ -304,6 +238,7 @@ Core models in `prisma/schema.prisma`:
 - `ArticleProduct` - Article-to-product associations
 - `ArticleRankingPeriod` / `ArticleRanking` - Article rankings by period (DAILY, MONTHLY)
 - `ArticleView` / `ArticleShare` - Article view and share tracking
+- `ArticleCollectionJob` - Article collection job tracking (source, status, counts, error log)
 
 ### Form State Persistence
 
@@ -312,10 +247,6 @@ Admin product registration forms persist data to localStorage:
 - Uses `useMultiFormPersist` hook with 500ms debounce
 - Cleared automatically on successful submission
 - Storage keys: `admin-product-form`, `admin-bulk-product-form`
-
-### Video Search Results Sorting
-
-Search results are sorted by: score (desc) → viewCount (desc) → likeCount (desc)
 
 ### Responsive Design
 
@@ -375,3 +306,27 @@ When using Supabase pooler (port 6543), add `?pgbouncer=true` to `DATABASE_URL` 
 DATABASE_URL=postgresql://...@pooler.supabase.com:6543/postgres?pgbouncer=true
 ```
 Use `DIRECT_URL` (port 5432) for migrations.
+
+## Troubleshooting
+
+### PgBouncer Prepared Statement Error
+
+`prepared statement "sXX" does not exist` 에러 발생 시:
+1. `DATABASE_URL`에 `?pgbouncer=true` 파라미터가 있는지 확인
+2. 개발 서버 재시작: `pkill -f "next dev" && npm run dev`
+
+### Prisma Client Not Generated
+
+Windows에서 `predev` 스크립트가 자동 실행되지 않을 수 있음:
+```bash
+npm run db:generate
+```
+
+### Google News RSS Crawling Fails
+
+Google News RSS URL은 JavaScript 리다이렉트라 서버에서 크롤링 실패함.
+`summarizeFromMetadata()`가 title+description으로 대체 요약 생성.
+
+### Naver RSS DNS Issues (Local)
+
+로컬 환경에서 Naver RSS DNS 이슈 발생 시 VPN 또는 네트워크 변경 시도.

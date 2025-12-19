@@ -21,6 +21,7 @@ interface ArticleItem {
   source: "NAVER" | "GOOGLE";
   category: string | null;
   publishedAt: string;
+  collectedAt: string;
   rank: number;
   previousRank: number | null;
   score: number;
@@ -105,19 +106,31 @@ function getCurrentMonthString(): string {
   return format(today, "yyyy-MM");
 }
 
-function getRankChange(rank: number, previousRank: number | null) {
-  if (previousRank === null || previousRank === 0) {
-    return { type: "NEW" as const, value: null, label: "NEW" };
-  }
-  const change = previousRank - rank;
-  if (change > 0) return { type: "UP" as const, value: change, label: `+${change}` };
-  if (change < 0) return { type: "DOWN" as const, value: Math.abs(change), label: `${change}` };
-  return { type: "SAME" as const, value: 0, label: "-" };
+function isToday(dateString: string): boolean {
+  const date = new Date(dateString);
+  const today = new Date();
+  return (
+    date.getFullYear() === today.getFullYear() &&
+    date.getMonth() === today.getMonth() &&
+    date.getDate() === today.getDate()
+  );
 }
 
-function RankBadge({ type, label }: { type: "UP" | "DOWN" | "SAME" | "NEW"; label: string }) {
+function getRankChange(rank: number, previousRank: number | null, collectedAt: string, isViewingToday: boolean) {
+  // Only show NEW badge if viewing today AND collected today
+  if (isViewingToday && isToday(collectedAt)) {
+    return { type: "NEW" as const, value: null, label: "NEW" };
+  }
+  // For older articles or viewing past dates, don't show any badge
+  return { type: "NONE" as const, value: null, label: "" };
+}
+
+function RankBadge({ type, label }: { type: "UP" | "DOWN" | "SAME" | "NEW" | "NONE"; label: string }) {
   if (type === "NEW") {
     return <Badge className="bg-blue-500 text-white text-[10px] px-1">NEW</Badge>;
+  }
+  if (type === "NONE") {
+    return null;
   }
   if (type === "UP") {
     return <span className="text-green-500 text-xs font-medium">{label}</span>;
@@ -371,7 +384,8 @@ export default function NewsPage() {
         {!isLoading && !isError && (
           <div className="space-y-4">
             {allArticles.map((article) => {
-              const change = getRankChange(article.rank, article.previousRank);
+              const isViewingToday = period === "daily" && selectedDate === getTodayString();
+              const change = getRankChange(article.rank, article.previousRank, article.collectedAt, isViewingToday);
 
               return (
                 <Card key={article.id} className="overflow-hidden">
@@ -384,17 +398,6 @@ export default function NewsPage() {
                         </span>
                         <RankBadge type={change.type} label={change.label} />
                       </div>
-
-                      {/* Thumbnail */}
-                      {article.thumbnailUrl && (
-                        <div className="hidden sm:block w-24 h-16 flex-shrink-0">
-                          <img
-                            src={article.thumbnailUrl}
-                            alt=""
-                            className="w-full h-full object-cover rounded"
-                          />
-                        </div>
-                      )}
 
                       {/* Content */}
                       <div className="flex-1 min-w-0">

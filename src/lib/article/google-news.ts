@@ -70,7 +70,8 @@ function parseGoogleRssXml(xml: string): GoogleNewsItem[] {
 
 export async function fetchGoogleNews(query: string, category: string | null = null): Promise<ParsedArticle[]> {
   const encodedQuery = encodeURIComponent(query);
-  const url = `https://news.google.com/rss/search?q=${encodedQuery}&hl=ko&gl=KR&ceid=KR:ko`;
+  // when:1d = 최근 1일 이내 기사만, 최신순 정렬
+  const url = `https://news.google.com/rss/search?q=${encodedQuery}+when:1d&hl=ko&gl=KR&ceid=KR:ko`;
 
   try {
     const response = await fetch(url, {

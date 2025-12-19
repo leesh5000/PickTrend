@@ -31,7 +31,10 @@ export async function GET(request: NextRequest) {
 
     // Find ranking period - either by specific date or latest
     let rankingPeriod;
+    let specificDateRequested = false;
+
     if (year && month) {
+      specificDateRequested = true;
       // Look for specific period
       rankingPeriod = await prisma.articleRankingPeriod.findFirst({
         where: {
@@ -44,8 +47,8 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // If no specific period found, get the latest
-    if (!rankingPeriod) {
+    // Only fallback to latest if no specific date was requested
+    if (!rankingPeriod && !specificDateRequested) {
       rankingPeriod = await prisma.articleRankingPeriod.findFirst({
         where: { periodType },
         orderBy: { startedAt: "desc" },
@@ -56,6 +59,27 @@ export async function GET(request: NextRequest) {
     const articleWhere: any = { isActive: true };
     if (category) articleWhere.category = category;
     if (source) articleWhere.source = source;
+
+    // If specific date requested, filter by publishedAt date range
+    if (specificDateRequested && year && month) {
+      let startDate: Date;
+      let endDate: Date;
+
+      if (periodType === "DAILY" && day) {
+        // Filter for specific day
+        startDate = new Date(year, month - 1, day, 0, 0, 0);
+        endDate = new Date(year, month - 1, day, 23, 59, 59, 999);
+      } else {
+        // Filter for specific month
+        startDate = new Date(year, month - 1, 1, 0, 0, 0);
+        endDate = new Date(year, month, 0, 23, 59, 59, 999); // Last day of month
+      }
+
+      articleWhere.publishedAt = {
+        gte: startDate,
+        lte: endDate,
+      };
+    }
 
     // If no ranking period exists, return articles directly sorted by publishedAt
     if (!rankingPeriod) {
